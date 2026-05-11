@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const db = require('./db/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,11 +16,18 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Health check
 app.get('/health', (req, res) => {
+  const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get().count;
+  const trackCount = db.prepare('SELECT COUNT(*) as count FROM tracks').get().count;
+
   res.json({
     status: 'ok',
     service: 'Rigo FM',
     tagline: 'Tune in. Vote up.',
     version: '0.1.0',
+    db: {
+      sessions: sessionCount,
+      tracks: trackCount
+    },
     timestamp: new Date().toISOString()
   });
 });
