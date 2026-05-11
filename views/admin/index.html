@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0A0A0A">
+  <title>Rigo FM — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <div id="app">
+    <!-- LOGIN -->
+    <section id="view-login" class="view active">
+      <div class="login-box card-raised fade-in">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--md" style="margin: 0 auto var(--space-4);">
+        <p class="tagline" style="text-align:center; margin-bottom: var(--space-8);">Tune in. Vote up.</p>
+        <h2 style="text-align:center; margin-bottom: var(--space-6);">Admin Login</h2>
+        <input id="login-password" type="password" class="input" placeholder="Admin-Passwort" autocomplete="current-password">
+        <button id="login-btn" class="btn btn-primary btn-full" style="margin-top: var(--space-4);">Einloggen</button>
+        <p id="login-error" class="error-msg" style="display:none;"></p>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view">
+      <header class="topbar">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
+        <div class="topbar-right">
+          <span id="connection-status" class="conn-dot" title="Verbindung"></span>
+          <button id="logout-btn" class="btn btn-ghost btn-sm">Logout</button>
+        </div>
+      </header>
+
+      <main class="container">
+        <!-- No Session State -->
+        <div id="no-session-state" class="card-raised" style="display:none; text-align:center; padding: var(--space-12);">
+          <h2>Keine aktive Session</h2>
+          <p style="color: var(--color-text-muted); margin: var(--space-4) 0 var(--space-6);">Starte eine neue Party, damit deine Gäste beitreten können.</p>
+          <button id="start-session-btn" class="btn btn-primary">+ Neue Session starten</button>
+        </div>
+
+        <!-- Active Session State -->
+        <div id="active-session-state" style="display:none;">
+          <div class="session-header card-raised">
+            <div>
+              <h2 id="session-name">Party</h2>
+              <p class="tagline" style="margin-top: var(--space-1);">Session aktiv</p>
+            </div>
+            <button id="end-session-btn" class="btn btn-danger btn-sm">Session beenden</button>
+          </div>
+
+          <div class="grid-2">
+            <!-- QR + Join Info -->
+            <div class="card-raised">
+              <h3 style="margin-bottom: var(--space-4);">Beitreten</h3>
+              <div class="qr-wrap">
+                <img id="qr-image" alt="QR Code" style="width: 100%; max-width: 280px; background: white; padding: 12px; border-radius: var(--radius-md);">
+              </div>
+              <div class="join-info">
+                <div class="info-row">
+                  <span class="label">Code</span>
+                  <span id="session-code" class="value font-mono"></span>
+                </div>
+                <div class="info-row">
+                  <span class="label">URL</span>
+                  <span id="join-url" class="value font-mono"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Guests -->
+            <div class="card-raised">
+              <h3 style="margin-bottom: var(--space-4);">Gäste <span id="guest-count" class="badge"></span></h3>
+              <div id="guest-list" class="guest-list"></div>
+            </div>
+          </div>
+
+          <!-- Queue -->
+          <div class="card-raised" style="margin-top: var(--space-6);">
+            <div class="queue-header">
+              <h3>Queue <span id="track-count" class="badge"></span></h3>
+              <p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Drag & Drop zum Sortieren</p>
+            </div>
+            <div id="queue-list" class="queue-list"></div>
+            <p id="queue-empty" style="display:none; text-align:center; padding: var(--space-8); color: var(--color-text-muted);">Noch keine Songs in der Queue</p>
+          </div>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

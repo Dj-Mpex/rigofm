@@ -43,6 +43,8 @@ function buildQueue(sessionId, guestId = null) {
     WHERE t.session_id = ? AND t.status IN ('queued', 'playing')
     ORDER BY
       CASE WHEN t.status = 'playing' THEN 0 ELSE 1 END,
+      CASE WHEN t.manual_order IS NULL THEN 1 ELSE 0 END,
+      t.manual_order ASC,
       score DESC,
       t.created_at ASC
   `).all(sessionId);
@@ -126,6 +128,7 @@ router.post('/', (req, res) => {
             @added_by_guest_id, @added_by_name, @status, @played_at, @created_at)
   `).run(track);
 
+  req.app.locals.sockets.broadcastQueue(session.code);
   res.json({ track: { ...track, score: 0, myVote: 0 } });
 });
 
@@ -178,6 +181,7 @@ router.post('/:id/vote', (req, res) => {
   }
 
   const score = getTrackScore(trackId);
+  req.app.locals.sockets.broadcastQueue(session.code);
   res.json({ trackId, score, myVote: value });
 });
 
@@ -204,6 +208,8 @@ router.post('/:id/mark-playing', (req, res) => {
     return res.status(404).json({ error: 'Track not found or already played' });
   }
 
+  req.app.locals.sockets.broadcastQueue(session.code);
+  req.app.locals.sockets.broadcastTrackEvent(session.code, 'track:playing', { trackId });
   res.json({ ok: true, trackId });
 });
 
@@ -223,6 +229,8 @@ router.post('/:id/mark-played', (req, res) => {
     return res.status(404).json({ error: 'Track not found' });
   }
 
+  req.app.locals.sockets.broadcastQueue(session.code);
+  req.app.locals.sockets.broadcastTrackEvent(session.code, 'track:played', { trackId });
   res.json({ ok: true, trackId });
 });
 
@@ -244,7 +252,33 @@ router.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Track not found' });
   }
 
+  req.app.locals.sockets.broadcastQueue(session.code);
   res.json({ ok: true });
+});
+
+// POST /api/tracks/reorder - Admin sets manual order for tracks
+router.post('/reorder', (req, res) => {
+  const { adminPassword, orderedIds } = req.body;
+
+  if (adminPassword !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid admin password' });
+  }
+
+  if (!Array.isArray(orderedIds)) {
+    return res.status(400).json({ error: 'orderedIds must be an array' });
+  }
+
+  const session = getActiveSession(res);
+  if (!session) return;
+
+  const update = db.prepare('UPDATE tracks SET manual_order = ? WHERE id = ? AND session_id = ?');
+  const tx = db.transaction((ids) => {
+    ids.forEach((id, idx) => update.run(idx, id, session.id));
+  });
+  tx(orderedIds);
+
+  req.app.locals.sockets.broadcastQueue(session.code);
+  res.json({ ok: true, count: orderedIds.length });
 });
 
 module.exports = router;

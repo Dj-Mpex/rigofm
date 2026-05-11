@@ -109,4 +109,27 @@ router.post('/end', (req, res) => {
   res.json({ ended: result.changes });
 });
 
+// GET /api/sessions/active/guests - List guests of active session (admin)
+router.get('/active/guests', (req, res) => {
+  if (req.query.adminPassword !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid admin password' });
+  }
+
+  const session = db.prepare('SELECT * FROM sessions WHERE active = 1 LIMIT 1').get();
+  if (!session) {
+    return res.status(404).json({ error: 'No active session' });
+  }
+
+  const guests = db.prepare(`
+    SELECT g.id, g.name, g.created_at,
+      (SELECT COUNT(*) FROM tracks WHERE added_by_guest_id = g.id AND session_id = g.session_id) as track_count,
+      (SELECT COUNT(*) FROM votes WHERE guest_id = g.id) as vote_count
+    FROM guests g
+    WHERE g.session_id = ?
+    ORDER BY g.created_at DESC
+  `).all(session.id);
+
+  res.json({ guests });
+});
+
 module.exports = router;

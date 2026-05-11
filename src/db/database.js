@@ -67,6 +67,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_votes_guest ON votes(guest_id);
 `);
 
+// Add manual_order column for admin drag&drop (idempotent)
+try {
+  db.exec('ALTER TABLE tracks ADD COLUMN manual_order INTEGER');
+  console.log('   → added manual_order column');
+} catch (e) {
+  // Column already exists, ignore
+}
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;
