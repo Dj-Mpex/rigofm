@@ -1,0 +1,26 @@
+services:
+  rigofm:
+    build: .
+    container_name: rigofm
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - FILLER_PLAYLIST_ID=${FILLER_PLAYLIST_ID:-PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo}
+    volumes:
+      - rigofm_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  rigofm_data:
+    driver: local

@@ -12,7 +12,9 @@
     player: null,
     playerReady: false,
     socket: null,
-    pendingPlayAfterReady: null
+    pendingPlayAfterReady: null,
+    lastUserVolume: 100,
+    isFading: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -153,6 +155,7 @@
       case 'volume':
         if (typeof cmd.value === 'number') {
           state.player.setVolume(Math.max(0, Math.min(100, cmd.value)));
+          state.lastUserVolume = Math.max(0, Math.min(100, cmd.value));
         }
         break;
       case 'mute':
@@ -288,6 +291,15 @@
       state.pendingPlayAfterReady = () => playTrack(track);
       return;
     }
+
+    // Special case: filler -> real track gets a smooth crossfade
+    if (state.isFillerMode) {
+      ensurePlayingViewActive();
+      fadeFillerToTrack(track);
+      return;
+    }
+
+    // Normal hard switch (track -> track, or initial)
     state.isFillerMode = false;
     state.currentTrack = track;
     $('tv-filler-badge').style.display = 'none';
@@ -422,6 +434,51 @@
       playerState
     });
   }, 1000);
+
+  // === Volume fade helpers (only used Filler -> Queue transition) ===
+  function fadeVolume(from, to, durationMs) {
+    return new Promise(resolve => {
+      if (!state.player || !state.playerReady) return resolve();
+      const steps = 20;
+      const stepMs = durationMs / steps;
+      const delta = (to - from) / steps;
+      let i = 0;
+      state.isFading = true;
+      const tick = () => {
+        i++;
+        const v = Math.round(from + delta * i);
+        try { state.player.setVolume(Math.max(0, Math.min(100, v))); } catch {}
+        if (i >= steps) {
+          state.isFading = false;
+          resolve();
+        } else {
+          setTimeout(tick, stepMs);
+        }
+      };
+      tick();
+    });
+  }
+
+  async function fadeFillerToTrack(track) {
+    // Remember user's current volume before fading
+    let startVolume = 100;
+    try { startVolume = state.player.getVolume() || 100; } catch {}
+    if (!state.player.isMuted()) state.lastUserVolume = startVolume;
+
+    // 1.2s fade out
+    await fadeVolume(startVolume, 0, 1200);
+
+    // Switch track (still at vol 0)
+    state.isFillerMode = false;
+    state.currentTrack = track;
+    $('tv-filler-badge').style.display = 'none';
+    state.player.loadVideoById({ videoId: track.youtube_id });
+
+    // Wait briefly for video to start, then fade in
+    setTimeout(async () => {
+      await fadeVolume(0, state.lastUserVolume, 1200);
+    }, 600);
+  }
 
   // --- Init ---
   document.addEventListener('DOMContentLoaded', boot);
