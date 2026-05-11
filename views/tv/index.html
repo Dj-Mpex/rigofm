@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0A0A0A">
+  <title>Rigo FM — TV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Grotesk:wght@500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/tv.css">
+</head>
+<body>
+  <div id="tv-app">
+
+    <!-- IDLE VIEW (queue empty, no filler) -->
+    <section id="tv-idle" class="tv-state">
+      <div class="idle-stack">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--xl">
+        <p class="tagline tagline-lg">Tune in. Vote up.</p>
+
+        <div class="join-instruction">
+          <div class="join-text">
+            <p class="join-eyebrow">Scan & join</p>
+            <p id="tv-session-name" class="join-session">Rigo Party</p>
+            <p class="join-cta">
+              Code <span id="tv-session-code" class="join-code">------</span>
+            </p>
+            <p class="join-url" id="tv-join-url">localhost:3002/join/------</p>
+          </div>
+          <div class="join-qr-wrap">
+            <img id="tv-qr" alt="QR" class="join-qr">
+          </div>
+        </div>
+
+        <div class="rigo-wave wave-bottom"></div>
+      </div>
+    </section>
+
+    <!-- NO SESSION (server is up but no active session) -->
+    <section id="tv-no-session" class="tv-state">
+      <div class="idle-stack">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--lg">
+        <h1 style="margin-top: var(--space-6);">Keine aktive Session</h1>
+        <p style="color: var(--color-text-muted); margin-top: var(--space-2);">Starte eine Party im Admin-Panel.</p>
+      </div>
+    </section>
+
+    <!-- PLAYING VIEW -->
+    <section id="tv-playing" class="tv-state">
+      <div class="tv-layout">
+        <!-- Video area -->
+        <div class="tv-video-wrap">
+          <div id="player"></div>
+          <div id="tv-filler-badge" class="filler-badge" style="display:none;">
+            <span class="filler-dot"></span> Idle Mode · Filler
+          </div>
+        </div>
+
+        <!-- Side panel -->
+        <aside class="tv-side">
+          <header class="tv-side-header">
+            <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
+            <div class="tv-session-info">
+              <p class="tv-session-label">Session</p>
+              <p id="tv-side-name" class="tv-session-value">—</p>
+            </div>
+          </header>
+
+          <!-- Now Playing in sidebar -->
+          <div id="tv-now" class="tv-now" style="display:none;">
+            <p class="tv-now-label">Now playing · gewünscht von</p>
+            <div class="tv-now-by">
+              <span id="tv-now-avatar" class="avatar avatar-md">?</span>
+              <span id="tv-now-name" class="tv-now-name">—</span>
+            </div>
+            <p id="tv-now-title" class="tv-now-title">—</p>
+          </div>
+
+          <!-- Queue -->
+          <div class="tv-queue-block">
+            <div class="tv-queue-header">
+              <h3>Up next</h3>
+              <span id="tv-queue-count" class="badge">0</span>
+            </div>
+            <div id="tv-queue" class="tv-queue"></div>
+            <p id="tv-queue-empty" class="tv-empty" style="display:none;">Queue ist leer — Filler läuft.</p>
+          </div>
+
+          <!-- Join card (mini, always visible) -->
+          <footer class="tv-join-mini">
+            <img id="tv-join-mini-qr" alt="QR" class="tv-join-mini-qr">
+            <div class="tv-join-mini-text">
+              <p class="tv-join-mini-eyebrow">Join:</p>
+              <p id="tv-join-mini-url" class="tv-join-mini-url font-mono">--</p>
+              <p class="tv-join-mini-code">Code <span id="tv-join-mini-code">--</span></p>
+            </div>
+          </footer>
+        </aside>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/js/tv.js"></script>
+</body>
+</html>

@@ -41,6 +41,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Public config for TV display
+app.get('/api/config/filler', (req, res) => {
+  res.json({ playlistId: process.env.FILLER_PLAYLIST_ID || '' });
+});
+
 // API routes
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/sessions', sessionsRouter);
@@ -53,6 +58,11 @@ app.get('/', (req, res) => {
 
 app.get('/join/:code', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
+});
+
+// TV display view
+app.get('/tv', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'tv', 'index.html'));
 });
 
 // Admin panel
