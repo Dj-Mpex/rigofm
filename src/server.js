@@ -4,6 +4,8 @@ const http = require('http');
 const path = require('path');
 const db = require('./db/database');
 const youtubeRouter = require('./routes/youtube');
+const sessionsRouter = require('./routes/sessions');
+const tracksRouter = require('./routes/tracks');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +36,8 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/youtube', youtubeRouter);
+app.use('/api/sessions', sessionsRouter);
+app.use('/api/tracks', tracksRouter);
 
 // Root route (temporary)
 app.get('/', (req, res) => {
