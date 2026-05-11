@@ -46,6 +46,15 @@ app.use('/api/youtube', youtubeRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/tracks', tracksRouter);
 
+// Guest landing (root + join paths)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
+});
+
+app.get('/join/:code', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
+});
+
 // Admin panel
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'views', 'admin', 'index.html'));
@@ -69,20 +78,6 @@ app.get('/api/qr', async (req, res) => {
   } catch (err) {
     res.status(500).send('QR generation failed');
   }
-});
-
-// Root route (temporary)
-app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head><title>Rigo FM</title></head>
-      <body style="background:#0A0A0A;color:#EAEAEA;font-family:sans-serif;text-align:center;padding:50px;">
-        <h1 style="color:#FF2E63;">📻 RIGO FM</h1>
-        <p style="color:#08D9D6;">Tune in. Vote up.</p>
-        <p style="color:#6B6B6B;">Server is running. Build in progress.</p>
-      </body>
-    </html>
-  `);
 });
 
 // Initialize sockets

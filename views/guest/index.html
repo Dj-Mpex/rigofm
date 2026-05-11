@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0A0A0A">
+  <title>Rigo FM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/guest.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- LOADING -->
+    <section id="view-loading" class="view active">
+      <div class="center-stack">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--md">
+        <p class="tagline">Tune in. Vote up.</p>
+        <div class="spinner"></div>
+      </div>
+    </section>
+
+    <!-- SESSION ERROR (invalid code / ended) -->
+    <section id="view-error" class="view">
+      <div class="center-stack">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--md">
+        <h2 style="text-align:center;">Keine aktive Party</h2>
+        <p id="error-msg" style="text-align:center; color: var(--color-text-muted);">Frag den DJ nach dem aktuellen QR-Code.</p>
+      </div>
+    </section>
+
+    <!-- MAIN APP -->
+    <section id="view-app" class="view">
+      <!-- Topbar -->
+      <header class="g-topbar">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
+        <div class="g-topbar-right">
+          <span id="g-conn-dot" class="conn-dot" title="Live"></span>
+          <button id="g-profile-btn" class="g-profile-btn" title="Profil">
+            <span id="g-profile-avatar" class="avatar avatar-sm">?</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Tabs -->
+      <nav class="g-tabs">
+        <button class="g-tab active" data-tab="queue">Queue</button>
+        <button class="g-tab" data-tab="search">Suchen</button>
+        <button class="g-tab" data-tab="mine">Meine</button>
+      </nav>
+
+      <!-- Tab: Queue -->
+      <main id="tab-queue" class="g-tab-content active">
+        <div id="now-playing-card" class="now-playing" style="display:none;">
+          <span class="np-label">Jetzt</span>
+          <div class="np-row">
+            <img id="np-thumb" class="np-thumb" alt="">
+            <div class="np-meta">
+              <div id="np-title" class="np-title"></div>
+              <div id="np-sub" class="np-sub"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="g-queue-list" class="g-queue-list"></div>
+        <p id="g-queue-empty" class="empty-state" style="display:none;">
+          Noch keine Songs in der Queue. <br>Sei der Erste!
+        </p>
+      </main>
+
+      <!-- Tab: Search -->
+      <main id="tab-search" class="g-tab-content">
+        <div class="search-bar">
+          <input id="g-search-input" type="search" class="input" placeholder="Songs, Artists, Vibes…" inputmode="search" autocomplete="off">
+        </div>
+        <div id="g-search-results" class="g-results-list"></div>
+        <p id="g-search-hint" class="empty-state">
+          Such einen Song, den du heute Abend hören willst.
+        </p>
+      </main>
+
+      <!-- Tab: Mine -->
+      <main id="tab-mine" class="g-tab-content">
+        <div id="g-mine-list" class="g-queue-list"></div>
+        <p id="g-mine-empty" class="empty-state" style="display:none;">
+          Du hast noch keine Songs hinzugefügt. <br>Wechsel zu „Suchen" und leg los.
+        </p>
+      </main>
+    </section>
+
+    <!-- NAME MODAL -->
+    <div id="name-modal" class="modal" style="display:none;">
+      <div class="modal-box fade-in">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm" style="margin-bottom: var(--space-4);">
+        <h2 style="margin-bottom: var(--space-2);">Wie heißt du?</h2>
+        <p style="color: var(--color-text-muted); font-size: var(--font-size-sm); margin-bottom: var(--space-6);">
+          Damit alle sehen, wer den Song gewünscht hat.
+        </p>
+        <input id="name-input" type="text" class="input" placeholder="Dein Name" maxlength="30" autocomplete="given-name">
+        <button id="name-submit" class="btn btn-primary btn-full" style="margin-top: var(--space-4);">Reinkommen 🎉</button>
+        <p id="name-error" class="error-msg" style="display:none;"></p>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast" style="display:none;"></div>
+
+    <!-- CONFETTI canvas -->
+    <canvas id="confetti-canvas"></canvas>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/guest.js"></script>
+</body>
+</html>
