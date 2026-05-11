@@ -1,5 +1,90 @@
 (() => {
   // ============================================
+  // Confetti Engine (lightweight, no deps)
+  // ============================================
+  const confetti = (() => {
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    let particles = [];
+    let raf = null;
+
+    function resize() {
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    if (canvas) {
+      resize();
+      window.addEventListener('resize', resize);
+    }
+
+    function spawn(count = 80) {
+      if (!canvas || !ctx) return;
+      const colors = ['#FF6B1A', '#FFA340', '#EDEDED', '#4ADE80', '#FF8540'];
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: canvas.width / 2 + (Math.random() - 0.5) * 100,
+          y: canvas.height / 2,
+          vx: (Math.random() - 0.5) * 14,
+          vy: -8 - Math.random() * 10,
+          gravity: 0.35,
+          size: 4 + Math.random() * 6,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.3,
+          life: 1
+        });
+      }
+      if (!raf) loop();
+    }
+
+    function loop() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.rotation += p.rotSpeed;
+        p.life -= 0.008;
+        if (p.life <= 0 || p.y > canvas.height + 50) return false;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+        return true;
+      });
+
+      if (particles.length > 0) {
+        raf = requestAnimationFrame(loop);
+      } else {
+        raf = null;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    return { spawn };
+  })();
+
+  // Track which "my tracks" have already triggered confetti to avoid spam
+  const _confettiSeen = new Set();
+
+  function maybeConfetti(queue) {
+    if (!state.guest) return;
+    const top = queue.find(t => t.status === 'queued');
+    if (!top) return;
+    if (top.added_by_guest_id !== state.guest.id) return;
+    if (_confettiSeen.has(top.id)) return;
+    _confettiSeen.add(top.id);
+    confetti.spawn(120);
+    toast(`🎉 Dein Song "${top.title.slice(0, 30)}…" ist auf #1!`, 'success');
+  }
+
+  // ============================================
   // RIGO FM — Guest App
   // ============================================
 
@@ -129,13 +214,34 @@
   // --- Socket ---
   function initSocket() {
     if (state.socket) return;
-    state.socket = io();
+    state.socket = io({
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity
+    });
+
     state.socket.on('connect', () => {
       $('g-conn-dot').classList.add('connected');
       state.socket.emit('session:join', { sessionCode: state.sessionCode });
+      // Refresh on reconnect to catch missed events
+      refreshQueue();
     });
-    state.socket.on('disconnect', () => $('g-conn-dot').classList.remove('connected'));
+
+    state.socket.on('disconnect', () => {
+      $('g-conn-dot').classList.remove('connected');
+    });
+
+    state.socket.on('reconnect_attempt', (n) => {
+      if (n === 3) toast('Verbindung wackelt …', 'error');
+    });
+
     state.socket.on('queue:updated', refreshQueue);
+
+    // Refresh when tab becomes visible again (e.g. user switched away and back)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && state.sessionId) refreshQueue();
+    });
   }
 
   // --- UI binding ---
@@ -400,6 +506,7 @@
     queued.forEach((t, idx) => {
       list.appendChild(buildTrackCard(t, idx + 1));
     });
+    maybeConfetti(state.queue);
   }
 
   function buildTrackCard(t, rank) {
