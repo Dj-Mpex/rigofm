@@ -3,6 +3,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const db = require('./db/database');
+const youtubeRouter = require('./routes/youtube');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +32,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use('/api/youtube', youtubeRouter);
 
 // Root route (temporary)
 app.get('/', (req, res) => {
