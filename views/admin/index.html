@@ -79,6 +79,19 @@
             </div>
           </div>
 
+          <!-- Settings: Filler Playlist -->
+          <div class="card-raised" style="margin-top: var(--space-6);">
+            <h3 style="margin-bottom: var(--space-2);">Idle-Filler Playlist</h3>
+            <p style="color: var(--color-text-muted); font-size: var(--font-size-sm); margin-bottom: var(--space-4);">
+              YouTube-Playlist die läuft wenn keine Songs in der Queue sind. Gib die Playlist-ID ein (der Teil nach <code class="font-mono">list=</code> in der URL).
+            </p>
+            <div class="filler-row">
+              <input id="filler-input" type="text" class="input" placeholder="z.B. PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo" maxlength="100" autocomplete="off">
+              <button id="filler-save" class="btn btn-primary">Speichern</button>
+            </div>
+            <p id="filler-status" class="filler-status"></p>
+          </div>
+
           <!-- Queue -->
           <div class="card-raised" style="margin-top: var(--space-6);">
             <div class="queue-header">
@@ -92,6 +105,52 @@
       </main>
     </section>
   </div>
+
+    <!-- Player Remote Control Bar (only visible when active session exists) -->
+    <div id="player-bar" class="player-bar" style="display:none;">
+      <!-- Left: Track info -->
+      <div class="pb-info">
+        <img id="pb-thumb" class="pb-thumb" alt="">
+        <div class="pb-meta">
+          <div id="pb-title" class="pb-title">—</div>
+          <div id="pb-sub" class="pb-sub">—</div>
+        </div>
+      </div>
+
+      <!-- Center: Controls + progress -->
+      <div class="pb-center">
+        <div class="pb-controls">
+          <button id="pb-force-filler" class="pb-btn pb-btn-ghost" title="Force Filler" aria-label="Force Filler">
+            <span class="pb-icon">⌂</span>
+          </button>
+          <button id="pb-toggle" class="pb-btn pb-btn-primary" title="Play/Pause" aria-label="Play/Pause">
+            <span id="pb-toggle-icon" class="pb-icon-lg">▶</span>
+          </button>
+          <button id="pb-skip" class="pb-btn pb-btn-ghost" title="Skip" aria-label="Skip">
+            <span class="pb-icon">⏭</span>
+          </button>
+        </div>
+        <div class="pb-progress-row">
+          <span id="pb-time-current" class="pb-time">0:00</span>
+          <div class="pb-progress-track">
+            <div id="pb-progress-fill" class="pb-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span id="pb-time-duration" class="pb-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Right: Volume + status -->
+      <div class="pb-right">
+        <button id="pb-mute" class="pb-btn pb-btn-ghost" title="Mute" aria-label="Mute">
+          <span id="pb-mute-icon" class="pb-icon">🔊</span>
+        </button>
+        <input id="pb-volume" type="range" min="0" max="100" value="100" class="pb-volume" aria-label="Volume">
+        <div id="pb-tv-status" class="pb-tv-status" title="TV Status">
+          <span class="pb-tv-dot"></span>
+          <span class="pb-tv-label">TV</span>
+        </div>
+      </div>
+    </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/admin.js"></script>

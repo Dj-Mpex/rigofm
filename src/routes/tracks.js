@@ -220,17 +220,20 @@ router.post('/:id/mark-played', (req, res) => {
   const session = getActiveSession(res);
   if (!session) return;
 
-  const result = db.prepare(`
+  const track = db.prepare('SELECT * FROM tracks WHERE id = ? AND session_id = ?')
+    .get(trackId, session.id);
+  if (!track) {
+    return res.status(404).json({ error: 'Track not found' });
+  }
+
+  db.prepare(`
     UPDATE tracks SET status = 'played', played_at = ?
     WHERE id = ? AND session_id = ?
   `).run(Date.now(), trackId, session.id);
 
-  if (result.changes === 0) {
-    return res.status(404).json({ error: 'Track not found' });
-  }
-
   req.app.locals.sockets.broadcastQueue(session.code);
   req.app.locals.sockets.broadcastTrackEvent(session.code, 'track:played', { trackId });
+
   res.json({ ok: true, trackId });
 });
 

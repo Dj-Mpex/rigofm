@@ -349,3 +349,59 @@ body { background: #000; }
   font-weight: var(--font-weight-bold);
   margin-left: var(--space-2);
 }
+
+/* === Start Screen (autoplay bypass) === */
+#tv-start.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tv-start-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-12);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  width: 100vw;
+  height: 100vh;
+  transition: background var(--transition-base);
+}
+.tv-start-btn:hover {
+  background: radial-gradient(ellipse at center, var(--color-primary-dim) 0%, transparent 70%);
+}
+.tap-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  padding: var(--space-3) var(--space-8);
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-glow-primary);
+  animation: pulse-glow 2s infinite;
+}
+.tap-pulse {
+  width: 14px;
+  height: 14px;
+  background: var(--color-bg);
+  border-radius: var(--radius-full);
+  animation: pulse-glow 1.2s infinite;
+}
+.tap-sub {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-top: var(--space-2);
+}

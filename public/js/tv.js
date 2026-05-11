@@ -58,14 +58,16 @@
     try {
       const [{ session }, { playlistId }] = await Promise.all([
         api('/api/sessions/active'),
-        api('/api/config/filler')
+        api('/api/settings/filler')
       ]);
       state.session = session;
       state.fillerPlaylistId = playlistId;
 
       renderSession();
       initSocket();
-      await refreshQueue();
+
+      // Wait for user tap before doing anything that needs audio
+      $('tv-start-btn').addEventListener('click', onStartTap, { once: true });
     } catch (err) {
       console.error('Boot:', err);
       if (err.message === 'No active session') {
@@ -75,6 +77,12 @@
         $('tv-no-session').querySelector('p').textContent = 'Server-Verbindung fehlgeschlagen.';
       }
     }
+  }
+
+  async function onStartTap() {
+    // User interaction grants permission for audio autoplay
+    showState('playing');
+    await refreshQueue();
   }
 
   function renderSession() {
@@ -103,10 +111,64 @@
       reconnectionAttempts: Infinity
     });
     state.socket.on('connect', () => {
-      state.socket.emit('session:join', { sessionCode: state.session.code });
+      state.socket.emit('session:join', { sessionCode: state.session.code, role: 'tv' });
       refreshQueue();
     });
     state.socket.on('queue:updated', refreshQueue);
+    state.socket.on('config:changed', onConfigChanged);
+    state.socket.on('player:command', handlePlayerCommand);
+  }
+
+  async function onConfigChanged() {
+    try {
+      const { playlistId } = await api('/api/settings/filler');
+      state.fillerPlaylistId = playlistId;
+      // If we're currently in filler mode, restart filler with new playlist
+      if (state.isFillerMode) {
+        startFiller();
+      }
+    } catch (err) {
+      console.error('config:changed fetch:', err);
+    }
+  }
+
+  function handlePlayerCommand(cmd) {
+    if (!state.player || !state.playerReady) return;
+    switch (cmd.action) {
+      case 'pause':
+        state.player.pauseVideo();
+        break;
+      case 'play':
+        state.player.playVideo();
+        break;
+      case 'toggle': {
+        const s = state.player.getPlayerState();
+        if (s === YT.PlayerState.PLAYING) state.player.pauseVideo();
+        else state.player.playVideo();
+        break;
+      }
+      case 'skip':
+        onTrackEnded();
+        break;
+      case 'volume':
+        if (typeof cmd.value === 'number') {
+          state.player.setVolume(Math.max(0, Math.min(100, cmd.value)));
+        }
+        break;
+      case 'mute':
+        state.player.mute();
+        break;
+      case 'unmute':
+        state.player.unMute();
+        break;
+      case 'force-filler':
+        if (state.currentTrack && !state.isFillerMode) {
+          api(`/api/tracks/${state.currentTrack.id}/mark-played`, { method: 'POST', body: '{}' })
+            .catch(() => {});
+        }
+        startFiller();
+        break;
+    }
   }
 
   // --- Queue refresh ---
@@ -135,14 +197,12 @@
 
     // No one is currently playing
     if (state.currentTrack && !state.isFillerMode) {
-      // We had something playing in DB but it's no longer there (deleted etc)
       state.currentTrack = null;
     }
 
-    // Nothing playing -> if queued exists, mark next and play
+    // Queued track exists -> mark as playing and play it immediately
+    // (even if filler is currently running)
     if (nextQueued) {
-      // Don't auto-start mid-filler-track; wait for filler video end
-      if (state.isFillerMode) return;
       markAndPlay(nextQueued);
       return;
     }
@@ -329,6 +389,30 @@
       });
     }
   }
+
+  // --- Player state polling (TV → Admin) ---
+  setInterval(() => {
+    if (!state.socket || !state.player || !state.playerReady) return;
+    let playerState = null;
+    try { playerState = state.player.getPlayerState(); } catch (_) { return; }
+    let currentTime = 0;
+    let duration = 0;
+    let volume = 100;
+    let isMuted = false;
+    try { currentTime = state.player.getCurrentTime(); } catch (_) {}
+    try { duration = state.player.getDuration(); } catch (_) {}
+    try { volume = state.player.getVolume(); } catch (_) {}
+    try { isMuted = state.player.isMuted(); } catch (_) {}
+    state.socket.emit('player:state', {
+      currentTrack: state.currentTrack,
+      isFillerMode: state.isFillerMode,
+      currentTime,
+      duration,
+      volume,
+      isMuted,
+      playerState
+    });
+  }, 1000);
 
   // --- Init ---
   document.addEventListener('DOMContentLoaded', boot);

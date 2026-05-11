@@ -75,6 +75,25 @@ try {
   // Column already exists, ignore
 }
 
+// Settings table for runtime config (filler playlist, etc.)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at INTEGER NOT NULL
+  );
+`);
+
+// Seed defaults if not present
+const seedDefault = (key, value) => {
+  const exists = db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
+  if (!exists) {
+    db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)')
+      .run(key, value, Date.now());
+  }
+};
+seedDefault('filler_playlist_id', process.env.FILLER_PLAYLIST_ID || 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo');
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;

@@ -14,6 +14,7 @@ const db = require('./db/database');
 const youtubeRouter = require('./routes/youtube');
 const sessionsRouter = require('./routes/sessions');
 const tracksRouter = require('./routes/tracks');
+const settingsRouter = require('./routes/settings');
 const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
@@ -41,15 +42,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Public config for TV display
-app.get('/api/config/filler', (req, res) => {
-  res.json({ playlistId: process.env.FILLER_PLAYLIST_ID || '' });
-});
-
 // API routes
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/tracks', tracksRouter);
+app.use('/api/settings', settingsRouter);
 
 // Guest landing (root + join paths)
 app.get('/', (req, res) => {

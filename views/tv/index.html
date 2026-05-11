@@ -14,6 +14,19 @@
 <body>
   <div id="tv-app">
 
+    <!-- START SCREEN (autoplay-blocker bypass) -->
+    <section id="tv-start" class="tv-state active">
+      <button id="tv-start-btn" class="tv-start-btn">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--xl">
+        <p class="tagline tagline-lg">Tune in. Vote up.</p>
+        <div class="tap-hint">
+          <span class="tap-pulse"></span>
+          <span class="tap-label">Tap to tune in</span>
+        </div>
+        <p class="tap-sub">Click anywhere to start the broadcast</p>
+      </button>
+    </section>
+
     <!-- IDLE VIEW (queue empty, no filler) -->
     <section id="tv-idle" class="tv-state">
       <div class="idle-stack">

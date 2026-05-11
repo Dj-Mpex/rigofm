@@ -228,3 +228,256 @@
   text-transform: uppercase;
   color: var(--color-primary);
 }
+
+/* Filler settings */
+.filler-row {
+  display: flex;
+  gap: var(--space-3);
+}
+.filler-row .input { flex: 1; }
+.filler-status {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  min-height: 1.2em;
+}
+.filler-status.success { color: var(--color-success); }
+.filler-status.error { color: var(--color-danger); }
+.filler-status.info { color: var(--color-text-muted); }
+
+/* ============================================
+   Player Remote Control Bar (Spotify-style)
+   ============================================ */
+
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-bg-raised);
+  border-top: 1px solid var(--color-border-bright);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Add bottom padding to main container so content isn't hidden under the bar */
+.container {
+  padding-bottom: 120px;
+}
+
+/* === Left: Track info === */
+.pb-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pb-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  flex-shrink: 0;
+}
+.pb-meta {
+  min-width: 0;
+  flex: 1;
+}
+.pb-title {
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.pb-sub .filler-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  border-radius: var(--radius-sm);
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: var(--space-2);
+}
+
+/* === Center: Controls === */
+.pb-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pb-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.pb-btn:active { transform: scale(0.92); }
+.pb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.pb-btn-ghost {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+}
+.pb-btn-ghost:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: var(--color-primary-dim);
+}
+
+.pb-btn-primary {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-bg);
+  font-size: 1.2rem;
+  font-weight: var(--font-weight-bold);
+}
+.pb-btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-glow-primary);
+}
+
+.pb-icon, .pb-icon-lg {
+  display: inline-block;
+  line-height: 1;
+}
+.pb-icon-lg { font-size: 1.4rem; }
+
+/* === Progress === */
+.pb-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.pb-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  min-width: 36px;
+  text-align: center;
+}
+.pb-progress-track {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.pb-progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.4s linear;
+}
+
+/* === Right: Volume + status === */
+.pb-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.pb-volume {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  outline: none;
+  accent-color: var(--color-primary);
+}
+.pb-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.pb-volume::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 8px var(--color-primary-glow);
+}
+.pb-volume::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  cursor: pointer;
+  border: none;
+}
+
+.pb-tv-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.pb-tv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  transition: background var(--transition-base);
+}
+.pb-tv-status.online .pb-tv-dot { background: var(--color-success); }
+.pb-tv-status.online { color: var(--color-success); border-color: var(--color-success); }
+
+/* === Responsive: collapse to compact on smaller screens === */
+@media (max-width: 768px) {
+  .player-bar {
+    grid-template-columns: 1fr auto;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+  .pb-center .pb-progress-row,
+  .pb-right .pb-volume,
+  .pb-tv-status .pb-tv-label {
+    display: none;
+  }
+}

@@ -63,6 +63,7 @@
     showView('dashboard');
     $('login-error').style.display = 'none';
     initSocket();
+    await loadFiller();
     await refreshAll();
   }
 
@@ -94,19 +95,28 @@
     $('qr-image').src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
 
     // Connect socket to session room
-    if (socket) socket.emit('session:join', { sessionCode: session.code });
+    if (socket) socket.emit('session:join', { sessionCode: session.code, role: 'admin' });
   }
 
   // --- Socket ---
   function initSocket() {
     if (socket) return;
     socket = io();
-    socket.on('connect', () => $('connection-status').classList.add('connected'));
-    socket.on('disconnect', () => $('connection-status').classList.remove('connected'));
+    socket.on('connect', () => {
+      $('connection-status').classList.add('connected');
+      if (currentSession) {
+        socket.emit('session:join', { sessionCode: currentSession.code, role: 'admin' });
+      }
+    });
+    socket.on('disconnect', () => {
+      $('connection-status').classList.remove('connected');
+      setTvOnline(false);
+    });
     socket.on('queue:updated', () => {
       refreshQueue();
       refreshGuests();
     });
+    socket.on('player:state', onPlayerState);
   }
 
   // --- Start session ---
@@ -295,4 +305,166 @@
   } else {
     showView('login');
   }
+
+  // --- Filler playlist settings ---
+  async function loadFiller() {
+    try {
+      const { playlistId } = await api('/api/settings/filler');
+      $('filler-input').value = playlistId || '';
+      const status = $('filler-status');
+      if (playlistId) {
+        status.textContent = `Aktiv: ${playlistId}`;
+        status.className = 'filler-status info';
+      } else {
+        status.textContent = 'Kein Filler konfiguriert — TV bleibt im Idle-Mode';
+        status.className = 'filler-status info';
+      }
+    } catch (err) {
+      console.error('Load filler:', err);
+    }
+  }
+
+  function extractPlaylistId(input) {
+    const s = input.trim();
+    if (!s) return '';
+    // Already a bare ID
+    if (/^[A-Za-z0-9_-]+$/.test(s)) return s;
+    // Extract `list=...` parameter from any YouTube URL
+    // (works for playlist?list=, watch?v=...&list=, etc.)
+    const m = s.match(/[?&#]list=([A-Za-z0-9_-]+)/);
+    if (m) return m[1];
+    // Fallback: return original (will fail backend validation, user gets error)
+    return s;
+  }
+
+  async function saveFiller() {
+    const raw = $('filler-input').value;
+    const playlistId = extractPlaylistId(raw);
+    const status = $('filler-status');
+    const btn = $('filler-save');
+
+    btn.disabled = true;
+    status.textContent = 'Speichern…';
+    status.className = 'filler-status info';
+
+    try {
+      const res = await fetch('/api/settings/filler', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminPassword, playlistId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler');
+
+      $('filler-input').value = data.playlistId;
+      status.textContent = data.playlistId
+        ? `Gespeichert: ${data.playlistId}`
+        : 'Filler deaktiviert';
+      status.className = 'filler-status success';
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = 'filler-status error';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $('filler-save').addEventListener('click', saveFiller);
+  $('filler-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') saveFiller();
+  });
+
+  // ============================================
+  // Player Remote Control Bar
+  // ============================================
+  let tvOnlineTimer = null;
+  let userIsSeekingVolume = false;
+
+  function setTvOnline(online) {
+    const status = $('pb-tv-status');
+    if (!status) return;
+    status.classList.toggle('online', online);
+    if (!online) {
+      $('player-bar').style.display = 'none';
+    }
+  }
+
+  function formatTime(sec) {
+    if (!sec || !isFinite(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function onPlayerState(s) {
+    if (!currentSession) return;
+
+    // Show the bar
+    $('player-bar').style.display = 'grid';
+    setTvOnline(true);
+
+    // Reset offline-timer
+    clearTimeout(tvOnlineTimer);
+    tvOnlineTimer = setTimeout(() => setTvOnline(false), 3500);
+
+    // Update info
+    if (s.isFillerMode) {
+      $('pb-thumb').src = '/img/rigo-logo.png';
+      $('pb-title').textContent = 'Idle Filler';
+      $('pb-sub').innerHTML = `<span class="filler-tag">Filler</span> YouTube-Playlist`;
+    } else if (s.currentTrack) {
+      $('pb-thumb').src = s.currentTrack.thumbnail || '';
+      $('pb-title').textContent = s.currentTrack.title;
+      $('pb-sub').textContent = `${s.currentTrack.artist || ''} · @${s.currentTrack.added_by_name}`;
+    } else {
+      $('pb-thumb').src = '/img/rigo-logo.png';
+      $('pb-title').textContent = '—';
+      $('pb-sub').textContent = '—';
+    }
+
+    // Progress
+    $('pb-time-current').textContent = formatTime(s.currentTime);
+    $('pb-time-duration').textContent = formatTime(s.duration);
+    const pct = s.duration > 0 ? (s.currentTime / s.duration) * 100 : 0;
+    $('pb-progress-fill').style.width = `${Math.min(100, pct)}%`;
+
+    // Play/pause icon: 1 = playing, 2 = paused
+    const isPlaying = s.playerState === 1;
+    $('pb-toggle-icon').textContent = isPlaying ? '❚❚' : '▶';
+
+    // Volume + mute
+    if (!userIsSeekingVolume) {
+      $('pb-volume').value = s.isMuted ? 0 : s.volume;
+    }
+    $('pb-mute-icon').textContent = s.isMuted || s.volume === 0 ? '🔇' : '🔊';
+  }
+
+  function sendCommand(action, value) {
+    if (!socket || !currentSession) return;
+    socket.emit('player:command', { action, value });
+  }
+
+  // Wire up controls
+  $('pb-toggle').addEventListener('click', () => sendCommand('toggle'));
+  $('pb-skip').addEventListener('click', () => {
+    if (confirm('Aktuellen Track skippen?')) sendCommand('skip');
+  });
+  $('pb-force-filler').addEventListener('click', () => {
+    if (confirm('Zurück zur Filler-Playlist? Aktueller Song wird unterbrochen.')) {
+      sendCommand('force-filler');
+    }
+  });
+  $('pb-mute').addEventListener('click', () => {
+    const isMutedNow = $('pb-mute-icon').textContent === '🔇';
+    sendCommand(isMutedNow ? 'unmute' : 'mute');
+  });
+
+  // Volume slider — only send while user is actively dragging
+  $('pb-volume').addEventListener('mousedown', () => { userIsSeekingVolume = true; });
+  $('pb-volume').addEventListener('touchstart', () => { userIsSeekingVolume = true; }, { passive: true });
+  $('pb-volume').addEventListener('input', (e) => {
+    sendCommand('volume', parseInt(e.target.value, 10));
+  });
+  $('pb-volume').addEventListener('mouseup', () => { setTimeout(() => userIsSeekingVolume = false, 200); });
+  $('pb-volume').addEventListener('touchend', () => { setTimeout(() => userIsSeekingVolume = false, 200); });
 })();
