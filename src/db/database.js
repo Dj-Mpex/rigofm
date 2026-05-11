@@ -75,6 +75,22 @@ try {
   // Column already exists, ignore
 }
 
+// Add device_id and emoji columns to guests (idempotent)
+try {
+  db.exec('ALTER TABLE guests ADD COLUMN device_id TEXT');
+  console.log('   → added device_id column to guests');
+} catch (e) { /* column exists */ }
+
+try {
+  db.exec('ALTER TABLE guests ADD COLUMN emoji TEXT');
+  console.log('   → added emoji column to guests');
+} catch (e) { /* column exists */ }
+
+// Index for fast device-id lookup
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_guests_device ON guests(session_id, device_id)');
+} catch (e) {}
+
 // Settings table for runtime config (filler playlist, etc.)
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
@@ -93,6 +109,22 @@ const seedDefault = (key, value) => {
   }
 };
 seedDefault('filler_playlist_id', process.env.FILLER_PLAYLIST_ID || 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo');
+
+// Backfill: assign emojis to legacy guests without one (use crypto for true randomness)
+try {
+  const crypto = require('crypto');
+  const PARTY_EMOJIS = ['🎉','🎊','🥳','🍻','🍾','🎶','🎵','🎸','🎤','🎷','🎺','🥁','🎹','💃','🕺','🪩','🔥','⚡','✨','🌟','💥','🚀','🎮','🎲','🎯','🎪','🦄','🐉','🦖','🐙','🦊','🦁','🐯','🐺','🦋','🦩','🌈','🍕','🌮','🌶️','🍔','🍩','🍪','🧁','🍦','🌵','🌴','🍒','🍑'];
+  const missing = db.prepare("SELECT id FROM guests WHERE emoji IS NULL OR emoji = ''").all();
+  if (missing.length > 0) {
+    const update = db.prepare('UPDATE guests SET emoji = ? WHERE id = ?');
+    missing.forEach(row => {
+      const buf = crypto.randomBytes(2);
+      const idx = buf.readUInt16BE(0) % PARTY_EMOJIS.length;
+      update.run(PARTY_EMOJIS[idx], row.id);
+    });
+    console.log(`   → backfilled ${missing.length} guests with party emojis`);
+  }
+} catch (e) { console.error('Emoji backfill failed:', e.message); }
 
 console.log('📀 Database ready:', dbPath);
 

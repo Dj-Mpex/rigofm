@@ -353,9 +353,16 @@
       $('tv-now-name').textContent = playing.added_by_name;
       $('tv-now-title').textContent = `${playing.title}`;
       const av = $('tv-now-avatar');
-      av.textContent = initials(playing.added_by_name);
-      av.style.background = avatarBg(playing.added_by_name);
-      av.style.color = '#0A0A0A';
+      if (playing.added_by_emoji) {
+        av.textContent = playing.added_by_emoji;
+        av.style.background = 'transparent';
+        av.style.fontSize = '1.6rem';
+      } else {
+        av.textContent = initials(playing.added_by_name);
+        av.style.background = avatarBg(playing.added_by_name);
+        av.style.color = '#0A0A0A';
+        av.style.fontSize = '';
+      }
     } else {
       $('tv-now').style.display = 'none';
     }
@@ -379,7 +386,9 @@
           <div class="tv-track-body">
             <div class="tv-track-title">${escapeHtml(t.title)}</div>
             <div class="tv-track-meta">
-              <span class="avatar" style="background:${avatarBg(t.added_by_name)};color:#0A0A0A;">${escapeHtml(initials(t.added_by_name))}</span>
+              ${t.added_by_emoji
+                ? `<span class="avatar" style="background:transparent;font-size:0.85rem;">${t.added_by_emoji}</span>`
+                : `<span class="avatar" style="background:${avatarBg(t.added_by_name)};color:#0A0A0A;">${escapeHtml(initials(t.added_by_name))}</span>`}
               <span>${escapeHtml(t.added_by_name)}</span>
             </div>
           </div>

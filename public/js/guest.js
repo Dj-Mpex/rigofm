@@ -133,7 +133,10 @@
     return `hsl(${hue}, 70%, 60%)`;
   }
 
-  function avatarHtml(name, size = 'sm') {
+  function avatarHtml(name, size = 'sm', emoji = null) {
+    if (emoji) {
+      return `<span class="avatar avatar-${size}" style="background:transparent;font-size:1.1rem;">${emoji}</span>`;
+    }
     return `<span class="avatar avatar-${size}" style="background:${avatarBg(name)}">${escapeHtml(initials(name))}</span>`;
   }
 
@@ -171,6 +174,19 @@
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }
 
+  // --- Device ID (persistent across sessions, used for anti-abuse) ---
+  function getDeviceId() {
+    let id = null;
+    try {
+      id = localStorage.getItem('rigofm_device_v1');
+    } catch {}
+    if (!id) {
+      id = crypto.randomUUID();
+      try { localStorage.setItem('rigofm_device_v1', id); } catch {}
+    }
+    return id;
+  }
+
   // --- Init / Boot ---
   async function boot() {
     // Determine session code from URL: /join/:code or fall back to active session
@@ -195,6 +211,12 @@
       const stored = loadStored();
       if (stored && stored.sessionCode === session.code && stored.guest) {
         state.guest = stored.guest;
+        // Re-fetch guest from server if emoji is missing (legacy storage from before emoji-update)
+        if (!state.guest.emoji && state.guest.id) {
+          // Try to verify guest still exists (best effort)
+          // We don't have a /guests/:id endpoint, so we just continue with what we have.
+          // The pill will show initials as fallback until next join.
+        }
         updateProfileBadge();
       }
 
@@ -273,15 +295,20 @@
   }
 
   function updateProfileBadge() {
-    const av = $('g-profile-avatar');
+    const pill = $('g-profile-btn');
+    const emojiEl = $('g-profile-emoji');
+    const nameEl = $('g-profile-name');
+
     if (state.guest) {
-      av.textContent = initials(state.guest.name);
-      av.style.background = avatarBg(state.guest.name);
-      av.style.color = 'var(--color-bg)';
+      pill.classList.remove('is-anon');
+      pill.classList.add('is-guest');
+      emojiEl.textContent = state.guest.emoji || initials(state.guest.name);
+      nameEl.textContent = state.guest.name;
     } else {
-      av.textContent = '?';
-      av.style.background = 'var(--color-border-bright)';
-      av.style.color = 'var(--color-text-muted)';
+      pill.classList.remove('is-guest');
+      pill.classList.add('is-anon');
+      emojiEl.textContent = '?';
+      nameEl.textContent = 'Tap to join';
     }
   }
 
@@ -333,11 +360,12 @@
     state.pendingAction = null;
 
     try {
+      const deviceId = getDeviceId();
       const { guest } = await api(`/api/sessions/${state.sessionCode}/join`, {
         method: 'POST',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, deviceId })
       });
-      state.guest = { id: guest.id, name: guest.name };
+      state.guest = { id: guest.id, name: guest.name, emoji: guest.emoji };
       saveStored({ sessionCode: state.sessionCode, guest: state.guest });
       updateProfileBadge();
       closeNameModal();
@@ -490,7 +518,8 @@
       np.style.display = 'block';
       $('np-thumb').src = playing.thumbnail || '';
       $('np-title').textContent = playing.title;
-      $('np-sub').innerHTML = `${escapeHtml(playing.artist || '')} · von <strong>${escapeHtml(playing.added_by_name)}</strong>`;
+      const npEmoji = playing.added_by_emoji ? `${playing.added_by_emoji} ` : '';
+      $('np-sub').innerHTML = `${escapeHtml(playing.artist || '')} · von ${npEmoji}<strong>${escapeHtml(playing.added_by_name)}</strong>`;
     } else {
       np.style.display = 'none';
     }
@@ -533,7 +562,7 @@
         <div class="g-track-title">${escapeHtml(t.title)}</div>
         <div class="g-track-meta">
           <span class="by-pill">
-            ${avatarHtml(t.added_by_name, 'sm')}
+            ${avatarHtml(t.added_by_name, 'sm', t.added_by_emoji)}
             <span class="by-name">${escapeHtml(t.added_by_name)}</span>
           </span>
         </div>

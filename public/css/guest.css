@@ -422,3 +422,49 @@ html, body { overscroll-behavior-y: contain; }
   pointer-events: none;
   z-index: 300;
 }
+
+/* Profile pill (top-right) */
+.g-profile-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 12px 4px 6px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  max-width: 180px;
+}
+.g-profile-pill:hover { border-color: var(--color-primary); }
+.g-profile-pill:active { transform: scale(0.96); }
+.g-profile-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.g-profile-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.g-profile-pill.is-guest .g-profile-emoji {
+  background: var(--color-bg);
+}
+.g-profile-pill.is-anon .g-profile-emoji {
+  color: var(--color-text-muted);
+}
+.g-profile-pill.is-anon .g-profile-name {
+  color: var(--color-text-muted);
+}

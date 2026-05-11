@@ -38,8 +38,10 @@ function getTrackScore(trackId) {
 function buildQueue(sessionId, guestId = null) {
   const tracks = db.prepare(`
     SELECT t.*,
+      g.emoji as added_by_emoji,
       COALESCE((SELECT SUM(value) FROM votes WHERE track_id = t.id), 0) as score
     FROM tracks t
+    LEFT JOIN guests g ON g.id = t.added_by_guest_id
     WHERE t.session_id = ? AND t.status IN ('queued', 'playing')
     ORDER BY
       CASE WHEN t.status = 'playing' THEN 0 ELSE 1 END,

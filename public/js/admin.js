@@ -185,7 +185,7 @@
         <img class="track-thumb" src="${t.thumbnail || ''}" alt="">
         <div class="track-meta">
           <div class="track-title">${escapeHtml(t.title)}</div>
-          <div class="track-sub">${escapeHtml(t.artist || '')} · <span class="by">@${escapeHtml(t.added_by_name)}</span></div>
+          <div class="track-sub">${escapeHtml(t.artist || '')} · <span class="by">${t.added_by_emoji ? t.added_by_emoji + ' ' : ''}${escapeHtml(t.added_by_name)}</span></div>
         </div>
         <div class="track-score ${scoreClass}">${scoreDisplay}</div>
         <div class="track-actions">
@@ -281,8 +281,10 @@
     guests.forEach(g => {
       const item = document.createElement('div');
       item.className = 'guest-item';
+      const emojiPart = g.emoji ? `<span style="font-size:1.2rem;margin-right:8px;">${g.emoji}</span>` : '';
+      const dupTag = g.dup_count > 0 ? `<span style="font-size:0.625rem;color:var(--color-warning);margin-left:6px;letter-spacing:0.08em;text-transform:uppercase;font-weight:bold;">⚠ ${g.dup_count}× Device</span>` : '';
       item.innerHTML = `
-        <span class="name">${escapeHtml(g.name)}</span>
+        <span class="name">${emojiPart}${escapeHtml(g.name)}${dupTag}</span>
         <span class="stats">
           <span><span class="stat-num">${g.track_count}</span> Tracks</span>
           <span><span class="stat-num">${g.vote_count}</span> Votes</span>

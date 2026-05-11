@@ -219,7 +219,12 @@ body { background: #000; }
   overflow: hidden;
 }
 
-.avatar-md { width: 44px; height: 44px; font-size: 1rem; }
+.avatar-md {
+  width: 56px;
+  height: 56px;
+  font-size: 2rem;
+  background: transparent !important;
+}
 
 /* Queue */
 .tv-queue-block {
