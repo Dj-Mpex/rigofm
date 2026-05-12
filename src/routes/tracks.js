@@ -108,6 +108,24 @@ router.post('/', (req, res) => {
     return res.status(409).json({ error: 'Dieser Song ist bereits in der Queue.' });
   }
 
+  // Apply filter rules from settings
+  const dbSettings = db.prepare("SELECT key, value FROM settings WHERE key IN ('max_track_length','min_track_length','music_only','blocked_video_ids')").all();
+  const settings = Object.fromEntries(dbSettings.map(r => [r.key, r.value]));
+  const maxLen = parseInt(settings.max_track_length || '480', 10);
+  const minLen = parseInt(settings.min_track_length || '60', 10);
+  let blocked = [];
+  try { blocked = JSON.parse(settings.blocked_video_ids || '[]'); } catch {}
+
+  if (blocked.includes(youtube_id)) {
+    return res.status(400).json({ error: 'Dieser Track ist blockiert.' });
+  }
+  if (duration && duration < minLen) {
+    return res.status(400).json({ error: `Track zu kurz (min. ${Math.floor(minLen/60)} Min).` });
+  }
+  if (duration && duration > maxLen) {
+    return res.status(400).json({ error: `Track zu lang (max. ${Math.floor(maxLen/60)} Min).` });
+  }
+
   const track = {
     id: crypto.randomUUID(),
     session_id: session.id,

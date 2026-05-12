@@ -65,6 +65,8 @@
     initSocket();
     await loadFiller();
     await refreshAll();
+    loadFilters();
+    bindFilterUI();
   }
 
   async function refreshAll() {
@@ -469,4 +471,123 @@
   });
   $('pb-volume').addEventListener('mouseup', () => { setTimeout(() => userIsSeekingVolume = false, 200); });
   $('pb-volume').addEventListener('touchend', () => { setTimeout(() => userIsSeekingVolume = false, 200); });
+
+  // === Filter & Limits ===
+  async function loadFilters() {
+    try {
+      const r = await api('/api/settings/filters');
+      $('filter-max-length').value = r.max_track_length;
+      $('filter-min-length').value = r.min_track_length;
+      $('filter-music-only').checked = r.music_only;
+      renderBlocklist(r.blocked_video_ids || []);
+    } catch (err) {
+      console.error('Load filters error:', err);
+    }
+  }
+
+  function renderBlocklist(ids) {
+    const container = $('blocked-list');
+    if (!ids.length) {
+      container.innerHTML = '<p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Keine blockierten Videos.</p>';
+      return;
+    }
+    container.innerHTML = ids.map(id => `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) var(--space-3); background: var(--color-bg-elevated); border-radius: var(--radius-sm);">
+        <code style="font-family: var(--font-mono); font-size: var(--font-size-sm);">${escapeHtml(id)}</code>
+        <button class="btn btn-sm btn-danger" data-unblock="${escapeHtml(id)}">Entsperren</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('[data-unblock]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-unblock');
+        try {
+          const r = await api(`/api/settings/filters/block/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          renderBlocklist(r.blocked_video_ids || []);
+        } catch (err) {
+          alert('Konnte nicht entsperren: ' + err.message);
+        }
+      });
+    });
+  }
+
+  function bindFilterUI() {
+    $('filter-save-btn').addEventListener('click', async () => {
+      const payload = {
+        max_track_length: parseInt($('filter-max-length').value, 10),
+        min_track_length: parseInt($('filter-min-length').value, 10),
+        music_only: $('filter-music-only').checked
+      };
+      try {
+        await api('/api/settings/filters', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const msg = $('filter-save-msg');
+        msg.style.display = 'inline';
+        setTimeout(() => { msg.style.display = 'none'; }, 2000);
+      } catch (err) {
+        alert('Speichern fehlgeschlagen: ' + err.message);
+      }
+    });
+
+    $('block-add-btn').addEventListener('click', async () => {
+      const input = $('block-videoid-input');
+      const raw = input.value.trim();
+      if (!raw) return;
+
+      const id = extractYouTubeId(raw);
+      if (!id) {
+        alert('Konnte keine gültige YouTube-Video-ID erkennen.');
+        return;
+      }
+
+      try {
+        const r = await api('/api/settings/filters/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId: id })
+        });
+        renderBlocklist(r.blocked_video_ids || []);
+        input.value = '';
+      } catch (err) {
+        alert('Blockieren fehlgeschlagen: ' + err.message);
+      }
+    });
+  }
+  // Extract video ID from various YouTube URL formats, or return as-is if it looks like a raw ID
+  function extractYouTubeId(input) {
+    if (!input) return null;
+    const trimmed = input.trim();
+
+    // Raw 11-char ID (YouTube IDs are always 11 chars: a-z A-Z 0-9 _ -)
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+
+    // Try URL parsing
+    try {
+      const url = new URL(trimmed);
+
+      // youtu.be/VIDEOID
+      if (url.hostname === 'youtu.be') {
+        const id = url.pathname.slice(1).split('/')[0];
+        if (/^[a-zA-Z0-9_-]{11}$/.test(id)) return id;
+      }
+
+      // youtube.com/watch?v=VIDEOID  or  music.youtube.com/watch?v=VIDEOID
+      if (url.hostname.endsWith('youtube.com')) {
+        const v = url.searchParams.get('v');
+        if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) return v;
+
+        // youtube.com/embed/VIDEOID  or  youtube.com/shorts/VIDEOID
+        const pathMatch = url.pathname.match(/\/(embed|shorts|v)\/([a-zA-Z0-9_-]{11})/);
+        if (pathMatch) return pathMatch[2];
+      }
+    } catch {}
+
+    // Last resort: regex on the raw input (e.g. paste with extra params/spaces)
+    const m = trimmed.match(/[a-zA-Z0-9_-]{11}/);
+    if (m) return m[0];
+
+    return null;
+  }
 })();

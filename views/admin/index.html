@@ -92,6 +92,44 @@
             <p id="filler-status" class="filler-status"></p>
           </div>
 
+      <div class="settings-card" style="margin-top: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-4);">Filter & Limits</h3>
+
+        <div class="form-group">
+          <label class="form-label">Maximale Track-Länge (Sekunden)</label>
+          <input id="filter-max-length" type="number" class="input" min="60" max="3600" step="30">
+          <small style="color: var(--color-text-muted); font-size: var(--font-size-xs);">Songs länger als dieser Wert werden in der Suche ausgeblendet. (z.B. 480 = 8 Min)</small>
+        </div>
+
+        <div class="form-group" style="margin-top: var(--space-4);">
+          <label class="form-label">Minimale Track-Länge (Sekunden)</label>
+          <input id="filter-min-length" type="number" class="input" min="0" max="600" step="10">
+          <small style="color: var(--color-text-muted); font-size: var(--font-size-xs);">Shorts und Schnipsel rausfiltern. (z.B. 60 = 1 Min)</small>
+        </div>
+
+        <div class="form-group" style="margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-3);">
+          <input id="filter-music-only" type="checkbox">
+          <label for="filter-music-only" style="cursor: pointer;">
+            <strong>Nur YouTube-Musik-Kategorie zulassen</strong>
+            <br><small style="color: var(--color-text-muted);">Filtert Vlogs, Filme, Streams, Cat-Videos aus.</small>
+          </label>
+        </div>
+
+        <button id="filter-save-btn" class="btn btn-primary" style="margin-top: var(--space-4);">Filter speichern</button>
+        <span id="filter-save-msg" style="margin-left: var(--space-3); color: var(--color-success); display: none;">✓ Gespeichert</span>
+      </div>
+
+      <div class="settings-card" style="margin-top: var(--space-6);">
+        <h3 style="margin-bottom: var(--space-4);">Blockierte Videos</h3>
+        <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-4);">
+          <input id="block-videoid-input" type="text" class="input" placeholder="YouTube-Link oder Video-ID einfügen" style="flex: 1;">
+          <button id="block-add-btn" class="btn btn-secondary">Blockieren</button>
+        </div>
+        <div id="blocked-list" style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Keine blockierten Videos.</p>
+        </div>
+      </div>
+
           <!-- Queue -->
           <div class="card-raised" style="margin-top: var(--space-6);">
             <div class="queue-header">

@@ -101,14 +101,16 @@ db.exec(`
 `);
 
 // Seed defaults if not present
-const seedDefault = (key, value) => {
-  const exists = db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
-  if (!exists) {
-    db.prepare('INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)')
-      .run(key, value, Date.now());
-  }
-};
-seedDefault('filler_playlist_id', process.env.FILLER_PLAYLIST_ID || 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo');
+const defaultSettings = [
+  { key: 'filler_playlist_id', value: process.env.FILLER_PLAYLIST_ID || 'PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo' },
+  { key: 'max_track_length', value: '480' },        // 8 Min in Sekunden
+  { key: 'min_track_length', value: '60' },         // 1 Min in Sekunden
+  { key: 'music_only', value: 'true' },             // YouTube-Kategorie 10 erzwingen
+  { key: 'blocked_video_ids', value: '[]' }         // JSON-Array von blockierten videoIds
+];
+
+const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)');
+defaultSettings.forEach(s => insertSetting.run(s.key, s.value, Date.now()));
 
 // Backfill: assign emojis to legacy guests without one (use crypto for true randomness)
 try {
