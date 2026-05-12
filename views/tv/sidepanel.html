@@ -14,24 +14,13 @@
 <body class="sp-body">
   <main class="sp-main">
 
-    <!-- Header: Session Name + QR + Join (same markup as TV sidebar) -->
+    <!-- Header: Logo + Session-Name -->
     <header>
       <div class="tv-brand">
         <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
         <div class="tv-brand-text">
           <span class="tv-brand-label">SESSION</span>
           <h2 id="tv-session-name" class="tv-brand-title">Rigo Party</h2>
-        </div>
-      </div>
-      <div class="tv-join-classic">
-        <img id="tv-qr" class="tv-qr-classic" alt="QR">
-        <div class="tv-join-text">
-          <span class="tv-join-classic-label">JOIN:</span>
-          <span id="tv-join-url" class="tv-join-classic-url">—</span>
-          <div>
-            <span class="tv-join-classic-codelabel">Code</span>
-            <span id="tv-join-code" class="tv-join-classic-code">——————</span>
-          </div>
         </div>
       </div>
     </header>
@@ -71,6 +60,19 @@
         <p class="sp-empty">Queue ist leer.</p>
       </div>
     </section>
+
+    <!-- Join-Card (Footer — pushed to bottom via margin-top: auto) -->
+    <div class="tv-join-classic sp-join-footer">
+      <img id="tv-qr" class="tv-qr-classic" alt="QR">
+      <div class="tv-join-text">
+        <span class="tv-join-classic-label">JOIN:</span>
+        <span id="tv-join-url" class="tv-join-classic-url">—</span>
+        <div>
+          <span class="tv-join-classic-codelabel">Code</span>
+          <span id="tv-join-code" class="tv-join-classic-code">——————</span>
+        </div>
+      </div>
+    </div>
 
   </main>
 

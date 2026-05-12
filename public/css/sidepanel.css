@@ -264,3 +264,6 @@ html, body, .sp-body {
   border-color: rgba(255, 255, 255, 0.08) !important;
   margin-top: 0;
 }
+.sp-main .sp-join-footer {
+  margin-top: auto;
+}

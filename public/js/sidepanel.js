@@ -34,12 +34,18 @@
 
   async function boot() {
     try {
-      const { session } = await api('/api/sessions/active');
+      const data = await api('/api/sessions/active');
+      console.log('[sidepanel] boot session data:', data);
+      const session = data.session;
       if (session) {
         state.sessionCode = session.code;
         renderSessionHeader(session);
+      } else {
+        console.warn('[sidepanel] no active session');
       }
-    } catch {}
+    } catch (err) {
+      console.error('[sidepanel] boot error:', err);
+    }
 
     await refresh();
     initSocket();
@@ -50,6 +56,7 @@
     const joinUrl = `${window.location.origin}/join/${session.code}`;
     const urlDisplay = joinUrl.replace(/^https?:\/\//, '');
     const qrSrc = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
+    console.log('[sidepanel] renderSessionHeader', { name: session.name, code: session.code, urlDisplay, qrSrc });
 
     document.querySelectorAll('#tv-session-name').forEach(el => el.textContent = session.name);
     document.querySelectorAll('#tv-session-code, #tv-join-code').forEach(el => el.textContent = session.code);
