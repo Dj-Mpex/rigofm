@@ -97,6 +97,7 @@
 
       // Wait for user tap before doing anything that needs audio
       $('tv-start-btn').addEventListener('click', onStartTap, { once: true });
+      bindKioskUI();
     } catch (err) {
       console.error('Boot:', err);
       if (err.message === 'No active session') {
@@ -781,6 +782,52 @@
         logoEl.src = '';
       }
     }
+  }
+
+  // === Kiosk Mode ===
+  let _cursorIdleTimer = null;
+
+  function enterKiosk() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    else if (el.msRequestFullscreen) el.msRequestFullscreen();
+  }
+
+  function hideCursor() {
+    document.body.classList.add('is-cursor-hidden');
+  }
+
+  function showCursor() {
+    document.body.classList.remove('is-cursor-hidden');
+    if (_cursorIdleTimer) clearTimeout(_cursorIdleTimer);
+    _cursorIdleTimer = setTimeout(hideCursor, 3000);
+  }
+
+  function onFullscreenChange() {
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    document.body.classList.toggle('is-kiosk', isFs);
+    if (isFs) {
+      showCursor(); // start the idle-timer cycle
+    } else {
+      document.body.classList.remove('is-cursor-hidden');
+      if (_cursorIdleTimer) clearTimeout(_cursorIdleTimer);
+    }
+  }
+
+  function bindKioskUI() {
+    const btn = document.getElementById('tv-kiosk-btn');
+    if (btn) btn.addEventListener('click', enterKiosk);
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+
+    // Cursor activity tracking — only active during kiosk mode
+    document.addEventListener('mousemove', () => {
+      if (document.body.classList.contains('is-kiosk')) {
+        showCursor();
+      }
+    });
   }
 
   // --- Init ---

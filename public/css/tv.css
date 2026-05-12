@@ -918,3 +918,55 @@ body::before {
   font-size: 1.7rem;
 }
 
+/* === TV Kiosk Button === */
+.tv-kiosk-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 200ms ease;
+  opacity: 0;
+  pointer-events: none;
+}
+body:hover .tv-kiosk-btn,
+.tv-kiosk-btn:focus,
+.tv-kiosk-btn:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tv-kiosk-btn:hover {
+  background: rgba(255, 107, 26, 0.2);
+  border-color: rgba(255, 107, 26, 0.4);
+  color: #FF6B1A;
+}
+
+/* When in fullscreen, hide the button entirely */
+body.is-kiosk .tv-kiosk-btn {
+  display: none;
+}
+
+/* Cursor auto-hide when inactive */
+body.is-cursor-hidden,
+body.is-cursor-hidden * {
+  cursor: none !important;
+}
+
+/* Kiosk mode: smoother black */
+body.is-kiosk {
+  background: #000;
+}
+body.is-kiosk #app {
+  background: #000;
+}
+
