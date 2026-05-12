@@ -251,3 +251,16 @@ html, body, .sp-body {
 .sp-mono {
   font-family: 'JetBrains Mono', monospace;
 }
+
+/* === Sidepanel overrides for TV header classes (360px column context) === */
+.sp-main .tv-brand {
+  margin-bottom: 8px;
+}
+.sp-main .tv-brand .rigo-logo--sm {
+  width: 110px !important;
+}
+.sp-main .tv-join-classic {
+  background: rgba(10, 10, 10, 0.82) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  margin-top: 0;
+}

@@ -47,23 +47,14 @@
 
   function renderSessionHeader(session) {
     if (!session) return;
-    const nameEl = $('sp-session-name');
-    const codeEl = $('sp-session-code');
-    const urlEl = $('sp-join-url');
-    const qrEl = $('sp-qr-image');
+    const joinUrl = `${window.location.origin}/join/${session.code}`;
+    const urlDisplay = joinUrl.replace(/^https?:\/\//, '');
+    const qrSrc = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
 
-    if (nameEl) nameEl.textContent = session.name || 'Party';
-    if (codeEl) codeEl.textContent = session.code || '—';
-
-    // Build join URL like TV does
-    const origin = window.location.origin;
-    const joinUrl = `${origin}/join/${session.code}`;
-    if (urlEl) urlEl.textContent = joinUrl.replace(/^https?:\/\//, '');
-
-    // QR via /api/qr?text=... like TV
-    if (qrEl && session.code) {
-      qrEl.src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
-    }
+    document.querySelectorAll('#tv-session-name').forEach(el => el.textContent = session.name);
+    document.querySelectorAll('#tv-session-code, #tv-join-code').forEach(el => el.textContent = session.code);
+    document.querySelectorAll('#tv-join-url').forEach(el => el.textContent = urlDisplay);
+    document.querySelectorAll('#tv-qr').forEach(img => img.src = qrSrc);
   }
 
   async function refresh() {
