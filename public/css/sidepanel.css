@@ -46,12 +46,10 @@ html::after,
 /* Each section gets a subtle dark glass-card background, not fully transparent so OBS keying isn't needed */
 .sp-now-section,
 .sp-upnext-section {
-  background: rgba(10, 10, 10, 0.78);
+  background: rgba(10, 10, 10, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   padding: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .sp-section-label {
@@ -223,11 +221,9 @@ html::after,
   align-items: center;
   gap: 14px;
   padding: 14px;
-  background: rgba(10, 10, 10, 0.82);
+  background: rgba(10, 10, 10, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-sizing: border-box;
 }
 .sp-qr-image {
