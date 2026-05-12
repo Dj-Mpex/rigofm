@@ -230,6 +230,7 @@
     state.player = new YT.Player('player', {
       height: '100%',
       width: '100%',
+      host: 'https://www.youtube-nocookie.com',
       playerVars: {
         autoplay: 1,
         controls: 0,
@@ -238,7 +239,9 @@
         playsinline: 1,
         iv_load_policy: 3,
         showinfo: 0,
-        disablekb: 1
+        disablekb: 1,
+        origin: window.location.origin,
+        enablejsapi: 1
       },
       events: {
         onReady: onPlayerReady,
