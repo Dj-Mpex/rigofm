@@ -330,7 +330,7 @@
     state.player.loadPlaylist({
       list: state.fillerPlaylistId,
       listType: 'playlist',
-      index: Math.floor(Math.random() * 50)
+      index: 0
     });
   }
 
