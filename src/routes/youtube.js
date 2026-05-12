@@ -26,7 +26,26 @@ router.get('/search', async (req, res) => {
     const searchUrl = `https://www.googleapis.com/youtube/v3/search?${searchParams.toString()}`;
     const searchResp = await fetch(searchUrl);
     const searchData = await searchResp.json();
-    if (!searchData.items) return res.json({ results: [] });
+
+    // Log API response if no items (likely an error from YouTube API)
+    if (!searchData.items) {
+      console.error('=== YouTube Search: No items returned ===');
+      console.error('HTTP Status:', searchResp.status);
+      console.error('Response:', JSON.stringify(searchData, null, 2));
+      console.error('API Key set:', !!process.env.YOUTUBE_API_KEY);
+      console.error('API Key prefix:', (process.env.YOUTUBE_API_KEY || '').slice(0, 8) + '…');
+      console.error('=========================================');
+
+      // If the API returned an error, propagate it to the client for visibility
+      if (searchData.error) {
+        return res.status(searchData.error.code || 500).json({
+          error: searchData.error.message || 'YouTube API Fehler',
+          details: searchData.error,
+          results: []
+        });
+      }
+      return res.json({ results: [] });
+    }
 
     const videoIds = searchData.items.map(i => i.id.videoId).join(',');
     if (!videoIds) return res.json({ results: [] });
@@ -36,6 +55,13 @@ router.get('/search', async (req, res) => {
       `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoIds}&key=${process.env.YOUTUBE_API_KEY}`
     );
     const detailsData = await detailsResp.json();
+
+    if (detailsData.error) {
+      console.error('=== YouTube Details: API Error ===');
+      console.error('HTTP Status:', detailsResp.status);
+      console.error('Response:', JSON.stringify(detailsData, null, 2));
+      console.error('==================================');
+    }
 
     // Read filter settings
     const maxLen = parseInt(db.prepare("SELECT value FROM settings WHERE key = 'max_track_length'").get()?.value || '480', 10);
