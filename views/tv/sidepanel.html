@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rigo FM — OBS Sidepanel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Space+Grotesk:wght@500;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/tv.css">
+  <link rel="stylesheet" href="/css/sidepanel.css">
+</head>
+<body class="sp-body">
+  <main class="sp-main">
+
+    <!-- DJ Profile Card (only visible in live-dj mode) -->
+    <section id="sp-dj-profile-section" class="tv-dj-profile-section" style="display:none;">
+      <div class="tv-dj-profile-card">
+        <div class="tv-dj-profile-logo-wrap">
+          <img id="sp-dj-profile-logo" class="tv-dj-profile-logo" alt="">
+          <span id="sp-dj-profile-logo-fallback" class="tv-dj-profile-logo-fallback">🎧</span>
+        </div>
+        <div class="tv-dj-profile-info">
+          <span class="tv-dj-profile-label">AT THE DECKS</span>
+          <span id="sp-dj-profile-name" class="tv-dj-profile-name">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Now Playing -->
+    <section id="sp-now-section" class="sp-now-section">
+      <div class="sp-section-label">
+        <span class="sp-pulse-dot"></span>
+        <span>NOW PLAYING</span>
+      </div>
+      <div id="sp-now-card" class="sp-now-card">
+        <p class="sp-empty">—</p>
+      </div>
+    </section>
+
+    <!-- Up Next -->
+    <section id="sp-upnext-section" class="sp-upnext-section">
+      <div class="sp-section-label">
+        <span>UP NEXT</span>
+        <span id="sp-upnext-count" class="sp-count-badge">0</span>
+      </div>
+      <div id="sp-upnext-list" class="sp-upnext-list">
+        <p class="sp-empty">Queue ist leer.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/sidepanel.js"></script>
+</body>
+</html>
