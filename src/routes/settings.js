@@ -44,7 +44,7 @@ router.put('/filler', (req, res) => {
 // GET all filter settings at once
 router.get('/filters', (req, res) => {
   try {
-    const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('max_track_length','min_track_length','music_only','blocked_video_ids')").all();
+    const rows = db.prepare("SELECT key, value FROM settings WHERE key IN ('max_track_length','min_track_length','music_only','blocked_video_ids','track_cooldown_minutes')").all();
     const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
     let blocked = [];
     try { blocked = JSON.parse(settings.blocked_video_ids || '[]'); } catch {}
@@ -52,7 +52,8 @@ router.get('/filters', (req, res) => {
       max_track_length: parseInt(settings.max_track_length || '480', 10),
       min_track_length: parseInt(settings.min_track_length || '60', 10),
       music_only: settings.music_only === 'true',
-      blocked_video_ids: blocked
+      blocked_video_ids: blocked,
+      track_cooldown_minutes: parseInt(settings.track_cooldown_minutes || '60', 10)
     });
   } catch (err) {
     console.error('Get filters error:', err);
@@ -63,7 +64,7 @@ router.get('/filters', (req, res) => {
 // PUT update filter settings
 router.put('/filters', (req, res) => {
   try {
-    const { max_track_length, min_track_length, music_only } = req.body;
+    const { max_track_length, min_track_length, music_only, track_cooldown_minutes } = req.body;
     const update = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
     if (typeof max_track_length === 'number' && max_track_length > 0) {
       update.run(String(max_track_length), 'max_track_length');
@@ -73,6 +74,9 @@ router.put('/filters', (req, res) => {
     }
     if (typeof music_only === 'boolean') {
       update.run(music_only ? 'true' : 'false', 'music_only');
+    }
+    if (typeof track_cooldown_minutes === 'number' && track_cooldown_minutes >= 0) {
+      update.run(String(track_cooldown_minutes), 'track_cooldown_minutes');
     }
     res.json({ success: true });
   } catch (err) {

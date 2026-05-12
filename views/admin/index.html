@@ -115,6 +115,12 @@
           </label>
         </div>
 
+        <div class="form-group" style="margin-top: var(--space-4);">
+          <label class="form-label">Track-Cooldown (Minuten)</label>
+          <input id="filter-cooldown" type="number" class="input" min="0" max="600" step="5">
+          <small style="color: var(--color-text-muted); font-size: var(--font-size-xs);">Wie lange ein Song nach dem Spielen nicht erneut gewünscht werden darf. 0 = deaktiviert.</small>
+        </div>
+
         <button id="filter-save-btn" class="btn btn-primary" style="margin-top: var(--space-4);">Filter speichern</button>
         <span id="filter-save-msg" style="margin-left: var(--space-3); color: var(--color-success); display: none;">✓ Gespeichert</span>
       </div>
@@ -130,15 +136,54 @@
         </div>
       </div>
 
-          <!-- Queue -->
-          <div class="card-raised" style="margin-top: var(--space-6);">
-            <div class="queue-header">
-              <h3>Queue <span id="track-count" class="badge"></span></h3>
-              <p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Drag & Drop zum Sortieren</p>
-            </div>
-            <div id="queue-list" class="queue-list"></div>
-            <p id="queue-empty" style="display:none; text-align:center; padding: var(--space-8); color: var(--color-text-muted);">Noch keine Songs in der Queue</p>
+          <!-- Tab nav -->
+          <div class="admin-tabs" style="margin-top: var(--space-6);">
+            <button class="admin-tab active" data-tab="queue">Queue</button>
+            <button class="admin-tab" data-tab="history">Verlauf</button>
+            <button class="admin-tab" data-tab="charts">Charts</button>
           </div>
+
+          <!-- Queue tab -->
+          <section id="admin-tab-queue" class="admin-tab-content">
+            <div class="card-raised" style="margin-top: var(--space-4);">
+              <div class="queue-header">
+                <h3>Queue <span id="track-count" class="badge"></span></h3>
+                <p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Drag & Drop zum Sortieren</p>
+              </div>
+              <div id="queue-list" class="queue-list"></div>
+              <p id="queue-empty" style="display:none; text-align:center; padding: var(--space-8); color: var(--color-text-muted);">Noch keine Songs in der Queue</p>
+            </div>
+          </section>
+
+          <!-- History tab -->
+          <section id="admin-tab-history" class="admin-tab-content" style="display:none;">
+            <h2 style="margin-bottom: var(--space-4); margin-top: var(--space-4);">Bisher gespielt</h2>
+            <div id="history-list" style="display: flex; flex-direction: column; gap: var(--space-3);">
+              <p style="color: var(--color-text-muted);">Noch nichts gespielt.</p>
+            </div>
+          </section>
+
+          <!-- Charts tab -->
+          <section id="admin-tab-charts" class="admin-tab-content" style="display:none;">
+            <h2 style="margin-bottom: var(--space-4); margin-top: var(--space-4);">Party-Charts</h2>
+            <div id="charts-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-6);"></div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-6);">
+              <div>
+                <h3 style="margin-bottom: var(--space-3);">🏆 Top Tracks</h3>
+                <div id="charts-tracks" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+              </div>
+              <div>
+                <h3 style="margin-bottom: var(--space-3);">🎤 Top Wisher</h3>
+                <div id="charts-wishers" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+              </div>
+              <div>
+                <h3 style="margin-bottom: var(--space-3);">👍 Top Voter</h3>
+                <div id="charts-voters" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
       </main>
     </section>

@@ -194,4 +194,71 @@ router.get('/active/guests', (req, res) => {
   res.json({ guests });
 });
 
+// GET /api/sessions/charts - Party stats for active session
+router.get('/charts', (req, res) => {
+  try {
+    const session = db.prepare('SELECT id, name FROM sessions WHERE active = 1 LIMIT 1').get();
+    if (!session) return res.json({ charts: null });
+
+    const topTracks = db.prepare(`
+      SELECT
+        t.id, t.title, t.artist, t.thumbnail, t.youtube_id, t.status,
+        g.name AS added_by_name, g.emoji AS added_by_emoji,
+        COALESCE(SUM(v.value), 0) AS score,
+        COUNT(CASE WHEN v.value = 1 THEN 1 END) AS upvotes,
+        COUNT(CASE WHEN v.value = -1 THEN 1 END) AS downvotes
+      FROM tracks t
+      LEFT JOIN guests g ON g.id = t.added_by_guest_id
+      LEFT JOIN votes v ON v.track_id = t.id
+      WHERE t.session_id = ?
+      GROUP BY t.id
+      ORDER BY score DESC, upvotes DESC
+      LIMIT 10
+    `).all(session.id);
+
+    const topWishers = db.prepare(`
+      SELECT g.id, g.name, g.emoji, COUNT(t.id) AS track_count
+      FROM guests g
+      LEFT JOIN tracks t ON t.added_by_guest_id = g.id
+      WHERE g.session_id = ?
+      GROUP BY g.id
+      HAVING track_count > 0
+      ORDER BY track_count DESC
+      LIMIT 10
+    `).all(session.id);
+
+    const topVoters = db.prepare(`
+      SELECT g.id, g.name, g.emoji, COUNT(v.id) AS vote_count
+      FROM guests g
+      LEFT JOIN votes v ON v.guest_id = g.id
+      WHERE g.session_id = ?
+      GROUP BY g.id
+      HAVING vote_count > 0
+      ORDER BY vote_count DESC
+      LIMIT 10
+    `).all(session.id);
+
+    const stats = db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM guests WHERE session_id = ?) AS total_guests,
+        (SELECT COUNT(*) FROM tracks WHERE session_id = ?) AS total_tracks,
+        (SELECT COUNT(*) FROM tracks WHERE session_id = ? AND status = 'played') AS played_tracks,
+        (SELECT COUNT(*) FROM votes v JOIN tracks t ON t.id = v.track_id WHERE t.session_id = ?) AS total_votes
+    `).get(session.id, session.id, session.id, session.id);
+
+    res.json({
+      charts: {
+        session_name: session.name,
+        stats,
+        top_tracks: topTracks,
+        top_wishers: topWishers,
+        top_voters: topVoters
+      }
+    });
+  } catch (err) {
+    console.error('Charts error:', err);
+    res.status(500).json({ error: 'Konnte Charts nicht laden' });
+  }
+});
+
 module.exports = router;

@@ -516,6 +516,7 @@
       await addTrack(track);
       btn.textContent = '✓';
       toast(`"${track.title.slice(0, 40)}…" hinzugefügt`, 'success');
+      refreshQueue();
       setTimeout(() => { btn.disabled = false; btn.textContent = '+'; }, 1500);
     } catch (err) {
       btn.disabled = false;

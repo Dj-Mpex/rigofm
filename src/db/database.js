@@ -106,7 +106,8 @@ const defaultSettings = [
   { key: 'max_track_length', value: '480' },        // 8 Min in Sekunden
   { key: 'min_track_length', value: '60' },         // 1 Min in Sekunden
   { key: 'music_only', value: 'true' },             // YouTube-Kategorie 10 erzwingen
-  { key: 'blocked_video_ids', value: '[]' }         // JSON-Array von blockierten videoIds
+  { key: 'blocked_video_ids', value: '[]' },        // JSON-Array von blockierten videoIds
+  { key: 'track_cooldown_minutes', value: '60' }
 ];
 
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)');

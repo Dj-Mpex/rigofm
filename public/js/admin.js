@@ -479,6 +479,7 @@
       $('filter-max-length').value = r.max_track_length;
       $('filter-min-length').value = r.min_track_length;
       $('filter-music-only').checked = r.music_only;
+      $('filter-cooldown').value = r.track_cooldown_minutes;
       renderBlocklist(r.blocked_video_ids || []);
     } catch (err) {
       console.error('Load filters error:', err);
@@ -515,7 +516,8 @@
       const payload = {
         max_track_length: parseInt($('filter-max-length').value, 10),
         min_track_length: parseInt($('filter-min-length').value, 10),
-        music_only: $('filter-music-only').checked
+        music_only: $('filter-music-only').checked,
+        track_cooldown_minutes: parseInt($('filter-cooldown').value, 10)
       };
       try {
         await api('/api/settings/filters', {
@@ -555,6 +557,142 @@
       }
     });
   }
+  // === Tab switching ===
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.admin-tab-content').forEach(s => s.style.display = 'none');
+      const section = document.getElementById(`admin-tab-${tabName}`);
+      if (section) section.style.display = 'block';
+      if (tabName === 'history') loadHistory();
+      if (tabName === 'charts') loadCharts();
+    });
+  });
+
+  async function loadHistory() {
+    try {
+      const r = await api('/api/tracks/history');
+      renderHistory(r.history || []);
+    } catch (err) {
+      console.error('Load history error:', err);
+    }
+  }
+
+  function renderHistory(items) {
+    const container = $('history-list');
+    if (!items.length) {
+      container.innerHTML = '<p style="color: var(--color-text-muted);">Noch nichts gespielt.</p>';
+      return;
+    }
+    container.innerHTML = items.map(t => {
+      const time = new Date(t.played_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      const dur = formatDuration(t.duration || 0);
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      const scoreClass = t.score > 0 ? 'positive' : t.score < 0 ? 'negative' : '';
+      const scoreSign = t.score > 0 ? '+' : '';
+      return `
+        <div style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); background: var(--color-bg-elevated); border-radius: var(--radius-md);">
+          <img src="${escapeHtml(t.thumbnail || '')}" alt="" style="width: 56px; height: 56px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(t.title)}</div>
+            <div style="color: var(--color-text-muted); font-size: var(--font-size-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              ${escapeHtml(t.artist || '')} · ${emoji}${escapeHtml(t.added_by_name || '?')}
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; font-size: var(--font-size-sm);">
+            <span style="color: var(--color-text-muted);">${time}</span>
+            <span style="color: var(--color-text-muted);">${dur}</span>
+            <span class="${scoreClass}" style="font-weight: 600;">${scoreSign}${t.score}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function formatDuration(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  }
+
+  async function loadCharts() {
+    try {
+      const r = await api('/api/sessions/charts');
+      if (!r.charts) {
+        $('charts-stats').innerHTML = '<p style="color: var(--color-text-muted);">Keine aktive Session.</p>';
+        $('charts-tracks').innerHTML = '';
+        $('charts-wishers').innerHTML = '';
+        $('charts-voters').innerHTML = '';
+        return;
+      }
+      renderChartsStats(r.charts.stats);
+      renderChartsTracks(r.charts.top_tracks);
+      renderChartsList('charts-wishers', r.charts.top_wishers, 'track_count', 'Tracks');
+      renderChartsList('charts-voters', r.charts.top_voters, 'vote_count', 'Votes');
+    } catch (err) {
+      console.error('Load charts error:', err);
+    }
+  }
+
+  function renderChartsStats(stats) {
+    const items = [
+      { label: 'Gäste', value: stats.total_guests || 0 },
+      { label: 'Wünsche', value: stats.total_tracks || 0 },
+      { label: 'Gespielt', value: stats.played_tracks || 0 },
+      { label: 'Votes', value: stats.total_votes || 0 }
+    ];
+    $('charts-stats').innerHTML = items.map(i => `
+      <div style="background: var(--color-bg-elevated); border-radius: var(--radius-md); padding: var(--space-4); text-align: center;">
+        <div style="font-size: var(--font-size-2xl); font-weight: 700; color: var(--color-primary);">${i.value}</div>
+        <div style="color: var(--color-text-muted); font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.05em;">${i.label}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderChartsTracks(tracks) {
+    const container = $('charts-tracks');
+    if (!tracks || !tracks.length) {
+      container.innerHTML = '<p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Noch keine Tracks.</p>';
+      return;
+    }
+    container.innerHTML = tracks.map((t, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      return `
+        <div style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-bg-elevated); border-radius: var(--radius-sm);">
+          <span style="font-size: var(--font-size-lg); min-width: 30px;">${medal}</span>
+          <img src="${escapeHtml(t.thumbnail || '')}" alt="" style="width: 36px; height: 36px; border-radius: 4px; object-fit: cover; flex-shrink: 0;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-sm);">${escapeHtml(t.title)}</div>
+            <div style="color: var(--color-text-muted); font-size: var(--font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${emoji}${escapeHtml(t.added_by_name || '?')}</div>
+          </div>
+          <div style="font-weight: 700; color: var(--color-primary); flex-shrink: 0;">${t.score > 0 ? '+' : ''}${t.score}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderChartsList(elId, items, valueKey, valueLabel) {
+    const container = $(elId);
+    if (!items || !items.length) {
+      container.innerHTML = '<p style="color: var(--color-text-muted); font-size: var(--font-size-sm);">Noch keine Daten.</p>';
+      return;
+    }
+    container.innerHTML = items.map((u, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const emoji = u.emoji ? u.emoji + ' ' : '';
+      return `
+        <div style="display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--color-bg-elevated); border-radius: var(--radius-sm);">
+          <span style="font-size: var(--font-size-lg); min-width: 30px;">${medal}</span>
+          <div style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${emoji}${escapeHtml(u.name || '?')}</div>
+          <div style="font-weight: 700; color: var(--color-primary); flex-shrink: 0;">${u[valueKey]} ${valueLabel}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
   // Extract video ID from various YouTube URL formats, or return as-is if it looks like a raw ID
   function extractYouTubeId(input) {
     if (!input) return null;

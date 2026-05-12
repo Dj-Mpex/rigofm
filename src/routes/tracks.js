@@ -126,6 +126,41 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: `Track zu lang (max. ${Math.floor(maxLen/60)} Min).` });
   }
 
+  // Cooldown: same videoId can't be re-added within X minutes of last play
+  const cooldownMin = parseInt(
+    db.prepare("SELECT value FROM settings WHERE key = 'track_cooldown_minutes'").get()?.value || '60',
+    10
+  );
+  if (cooldownMin > 0) {
+    const cutoffMs = Date.now() - (cooldownMin * 60 * 1000);
+    const recent = db.prepare(`
+      SELECT id FROM tracks
+      WHERE session_id = ?
+        AND youtube_id = ?
+        AND status IN ('played','playing')
+        AND played_at IS NOT NULL
+        AND played_at > ?
+      LIMIT 1
+    `).get(session.id, youtube_id, cutoffMs);
+    if (recent) {
+      return res.status(400).json({
+        error: `Dieser Track wurde gerade erst gespielt (Cooldown: ${cooldownMin} Min). Bitte später erneut wünschen.`
+      });
+    }
+  }
+
+  // Also block if same videoId is already in active queue (queued/playing)
+  const inQueue = db.prepare(`
+    SELECT id FROM tracks
+    WHERE session_id = ? AND youtube_id = ? AND status IN ('queued','playing')
+    LIMIT 1
+  `).get(session.id, youtube_id);
+  if (inQueue) {
+    return res.status(400).json({
+      error: 'Dieser Track ist bereits in der Queue.'
+    });
+  }
+
   const track = {
     id: crypto.randomUUID(),
     session_id: session.id,
@@ -148,8 +183,19 @@ router.post('/', (req, res) => {
             @added_by_guest_id, @added_by_name, @status, @played_at, @created_at)
   `).run(track);
 
+  // Auto-vote: adder gives their own track an automatic upvote
+  try {
+    const voteId = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO votes (id, track_id, guest_id, value, created_at)
+      VALUES (?, ?, ?, 1, ?)
+    `).run(voteId, track.id, guest.id, Date.now());
+  } catch (e) {
+    console.error('Auto-vote failed:', e.message);
+  }
+
   req.app.locals.sockets.broadcastQueue(session.code);
-  res.json({ track: { ...track, score: 0, myVote: 0 } });
+  res.json({ track: { ...track, score: 1, myVote: 1 } });
 });
 
 // POST /api/tracks/:id/vote - Vote on a track (value: 1, -1, or 0 to clear)
@@ -277,6 +323,25 @@ router.delete('/:id', (req, res) => {
 
   req.app.locals.sockets.broadcastQueue(session.code);
   res.json({ ok: true });
+});
+
+// GET /api/tracks/history - Last 100 played tracks (admin)
+router.get('/history', (req, res) => {
+  const session = getActiveSession(res);
+  if (!session) return;
+
+  const rows = db.prepare(`
+    SELECT t.id, t.youtube_id, t.title, t.artist, t.thumbnail, t.duration, t.played_at,
+      g.name AS added_by_name, g.emoji AS added_by_emoji,
+      COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.track_id = t.id), 0) AS score
+    FROM tracks t
+    LEFT JOIN guests g ON g.id = t.added_by_guest_id
+    WHERE t.session_id = ? AND t.status = 'played'
+    ORDER BY t.played_at DESC
+    LIMIT 100
+  `).all(session.id);
+
+  res.json({ history: rows });
 });
 
 // POST /api/tracks/reorder - Admin sets manual order for tracks
