@@ -1,9 +1,20 @@
+/* Kill any inherited 'transition: all' rule from tv.css — it causes black flicker in OBS */
+*, *::before, *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Re-enable pulse animation for the NOW PLAYING dot */
+.sp-pulse-dot {
+  animation: spPulse 1.2s ease-in-out infinite !important;
+}
+
 /* === Sidepanel for OBS Browser Source === */
 /* === Force transparent, no animations === */
 html, body, .sp-body {
   background: transparent !important;
   background-image: none !important;
-  background-color: red !important;
+  background-color: transparent !important;
   animation: none !important;
   margin: 0;
   padding: 0;
