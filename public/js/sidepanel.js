@@ -35,11 +35,29 @@
   async function boot() {
     try {
       const { session } = await api('/api/sessions/active');
-      if (session) state.sessionCode = session.code;
+      if (session) {
+        state.sessionCode = session.code;
+        renderSessionHeader(session);
+      }
     } catch {}
 
     await refresh();
     initSocket();
+  }
+
+  function renderSessionHeader(session) {
+    if (!session) return;
+    const nameEl = $('sp-session-name');
+    const codeEl = $('sp-session-code');
+    const urlEl = $('sp-join-url');
+    const qrEl = $('sp-qr-image');
+
+    if (nameEl) nameEl.textContent = session.name || 'Party';
+    if (codeEl) codeEl.textContent = session.code || '—';
+
+    const joinUrl = `${window.location.origin}/join/${session.code}`;
+    if (urlEl) urlEl.textContent = joinUrl.replace(/^https?:\/\//, '');
+    if (qrEl) qrEl.src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
   }
 
   async function refresh() {
@@ -174,7 +192,13 @@
     });
 
     state.socket.on('queue:updated', refresh);
-    state.socket.on('config:changed', refresh);
+    state.socket.on('config:changed', async () => {
+      refresh();
+      try {
+        const { session } = await api('/api/sessions/active');
+        if (session) renderSessionHeader(session);
+      } catch {}
+    });
   }
 
   // Init

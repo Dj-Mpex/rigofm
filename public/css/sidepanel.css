@@ -177,3 +177,71 @@ html, body, .sp-body {
 }
 
 /* DJ Profile section reuses tv.css classes already loaded — no need to redefine */
+
+/* === Header (Session Name + QR + Join) === */
+.sp-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.sp-session-name {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  padding: 0 4px;
+}
+.sp-join-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.sp-qr-image {
+  width: 86px;
+  height: 86px;
+  background: #fff;
+  padding: 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: block;
+}
+.sp-join-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.sp-join-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sp-join-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+}
+.sp-join-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-mono {
+  font-family: 'JetBrains Mono', monospace;
+}

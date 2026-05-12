@@ -14,6 +14,24 @@
 <body class="sp-body">
   <main class="sp-main">
 
+    <!-- Header: Session Name + QR + Join -->
+    <header class="sp-header">
+      <div class="sp-session-name" id="sp-session-name">—</div>
+      <div class="sp-join-card">
+        <img id="sp-qr-image" class="sp-qr-image" alt="QR Code">
+        <div class="sp-join-info">
+          <div class="sp-join-row">
+            <span class="sp-join-label">CODE</span>
+            <span class="sp-join-value sp-mono" id="sp-session-code">—</span>
+          </div>
+          <div class="sp-join-row">
+            <span class="sp-join-label">URL</span>
+            <span class="sp-join-value sp-mono" id="sp-join-url">—</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
     <!-- DJ Profile Card (only visible in live-dj mode) -->
     <section id="sp-dj-profile-section" class="tv-dj-profile-section" style="display:none;">
       <div class="tv-dj-profile-card">
