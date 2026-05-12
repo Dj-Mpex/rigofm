@@ -3,7 +3,7 @@
 html, body, .sp-body {
   background: transparent !important;
   background-image: none !important;
-  background-color: transparent !important;
+  background-color: red !important;
   animation: none !important;
   margin: 0;
   padding: 0;
