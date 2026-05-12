@@ -189,19 +189,25 @@
 
   // --- Init / Boot ---
   async function boot() {
-    // Determine session code from URL: /join/:code or fall back to active session
+    // Determine session code from URL: /join/:code
     const match = window.location.pathname.match(/^\/join\/([A-Z0-9]+)/i);
     const codeFromUrl = match ? match[1].toUpperCase() : null;
 
+    if (codeFromUrl) {
+      // User came via QR / direct link with code → validate and load
+      await loadSession(codeFromUrl);
+    } else {
+      // No code in URL → show code-entry screen
+      bindCodeEntry();
+      showView('code-entry');
+      setTimeout(() => $('code-input').focus(), 200);
+    }
+  }
+
+  async function loadSession(code) {
     try {
-      let session;
-      if (codeFromUrl) {
-        const r = await api(`/api/sessions/by-code/${codeFromUrl}`);
-        session = r.session;
-      } else {
-        const r = await api('/api/sessions/active');
-        session = r.session;
-      }
+      const r = await api(`/api/sessions/by-code/${code}`);
+      const session = r.session;
 
       state.sessionId = session.id;
       state.sessionCode = session.code;
@@ -211,25 +217,64 @@
       const stored = loadStored();
       if (stored && stored.sessionCode === session.code && stored.guest) {
         state.guest = stored.guest;
-        // Re-fetch guest from server if emoji is missing (legacy storage from before emoji-update)
-        if (!state.guest.emoji && state.guest.id) {
-          // Try to verify guest still exists (best effort)
-          // We don't have a /guests/:id endpoint, so we just continue with what we have.
-          // The pill will show initials as fallback until next join.
-        }
-        updateProfileBadge();
       }
+      updateProfileBadge();
 
       showView('app');
       initSocket();
       bindUI();
       await refreshQueue();
     } catch (err) {
-      console.error('Boot error:', err);
-      $('error-msg').textContent = err.message === 'Session not found or ended' || err.message === 'No active session'
-        ? 'Keine aktive Party. Frag den DJ nach dem aktuellen QR-Code.'
+      console.error('Load session error:', err);
+      $('error-msg').textContent = err.message === 'Session not found or ended'
+        ? 'Keine aktive Party mit diesem Code. Frag den DJ nach dem aktuellen Code.'
         : 'Verbindung zum Server fehlgeschlagen.';
       showView('error');
+    }
+  }
+
+  function bindCodeEntry() {
+    const input = $('code-input');
+    const btn = $('code-submit');
+    const errEl = $('code-error');
+
+    // Auto-uppercase as user types
+    input.addEventListener('input', (e) => {
+      const cleaned = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (e.target.value !== cleaned) e.target.value = cleaned;
+      errEl.style.display = 'none';
+    });
+
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') submitCode();
+    });
+
+    btn.addEventListener('click', submitCode);
+
+    async function submitCode() {
+      const code = input.value.trim().toUpperCase();
+      if (code.length < 4) {
+        errEl.textContent = 'Bitte einen 6-stelligen Code eingeben.';
+        errEl.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Prüfe…';
+      errEl.style.display = 'none';
+
+      try {
+        // Validate code by fetching session
+        await api(`/api/sessions/by-code/${encodeURIComponent(code)}`);
+        // Valid → redirect to /join/CODE
+        window.location.href = `/join/${code}`;
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Beitreten';
+        errEl.textContent = err.message === 'Session not found or ended'
+          ? 'Code ungültig oder Party beendet.'
+          : 'Fehler: ' + err.message;
+        errEl.style.display = 'block';
+      }
     }
   }
 

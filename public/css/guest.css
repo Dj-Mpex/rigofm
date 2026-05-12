@@ -468,3 +468,29 @@ html, body { overscroll-behavior-y: contain; }
 .g-profile-pill.is-anon .g-profile-name {
   color: var(--color-text-muted);
 }
+
+/* Code-entry screen */
+#view-code-entry.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  min-height: 100vh;
+}
+.code-entry-box {
+  background: var(--color-bg-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-elevated);
+}
+.code-input-field {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xl);
+  text-align: center;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  padding: var(--space-4);
+}

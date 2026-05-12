@@ -2,7 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
+const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
@@ -19,15 +22,65 @@ const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
 
+// Trust reverse proxy (Cloudflare → NPM → app)
+// This makes req.ip return the real client IP, not 127.0.0.1
+app.set('trust proxy', true);
+
+// Security headers via Helmet (CSP relaxed for YouTube embeds + Google Fonts)
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://www.gstatic.com", "https://s.ytimg.com"],
+      'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      'font-src': ["'self'", "https://fonts.gstatic.com", "data:"],
+      'img-src': ["'self'", "data:", "https:"],
+      'connect-src': ["'self'", "ws:", "wss:"],
+      'frame-src': ["https://www.youtube.com", "https://www.youtube-nocookie.com"],
+      'media-src': ["'self'", "https:"],
+      'object-src': ["'none'"],
+      'upgrade-insecure-requests': null
+    }
+  },
+  crossOriginEmbedderPolicy: false,  // YouTube embeds need this off
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+// Rate limiters (per IP)
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,    // 1 minute
+  max: 120,               // 120 req/min general API
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Anfragen. Bitte kurz warten.' }
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,                // 30 writes/min (track add, vote)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Aktionen. Bitte kurz warten.' }
+});
+
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,                // 20 YouTube searches/min (saves API quota)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Suchanfragen. Bitte kurz warten.' }
+});
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50kb' }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Make sockets module available to routes via app.locals
 app.locals.sockets = sockets;
 
-// Health check
+// Health check (no rate limit, useful for Docker healthcheck)
 app.get('/health', (req, res) => {
   const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get().count;
   const trackCount = db.prepare('SELECT COUNT(*) as count FROM tracks').get().count;
@@ -42,33 +95,19 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Apply rate limiters to /api routes
+app.use('/api/youtube/search', searchLimiter);
+app.use('/api/tracks', writeLimiter);
+app.use('/api/sessions/:code/join', writeLimiter);
+app.use('/api', generalLimiter);
+
 // API routes
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/tracks', tracksRouter);
 app.use('/api/settings', settingsRouter);
 
-// Guest landing (root + join paths)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
-});
-
-app.get('/join/:code', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
-});
-
-// TV display view
-app.get('/tv', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'tv', 'index.html'));
-});
-
-// Admin panel
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'admin', 'index.html'));
-});
-
 // QR code generator
-const QRCode = require('qrcode');
 app.get('/api/qr', async (req, res) => {
   const text = req.query.text || '';
   if (!text) return res.status(400).send('Missing text');
@@ -85,6 +124,24 @@ app.get('/api/qr', async (req, res) => {
   } catch (err) {
     res.status(500).send('QR generation failed');
   }
+});
+
+// Guest landing (root + join paths)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
+});
+app.get('/join/:code', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'guest', 'index.html'));
+});
+
+// Admin panel
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'admin', 'index.html'));
+});
+
+// TV display view
+app.get('/tv', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'views', 'tv', 'index.html'));
 });
 
 // Initialize sockets

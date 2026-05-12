@@ -23,6 +23,21 @@
       </div>
     </section>
 
+    <!-- CODE ENTRY (no /join/CODE in URL) -->
+    <section id="view-code-entry" class="view">
+      <div class="code-entry-box fade-in">
+        <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--md" style="margin: 0 auto var(--space-4);">
+        <p class="tagline" style="text-align:center; margin-bottom: var(--space-6);">Tune in. Vote up.</p>
+        <h2 style="text-align:center; margin-bottom: var(--space-2);">Party-Code eingeben</h2>
+        <p style="color: var(--color-text-muted); font-size: var(--font-size-sm); text-align:center; margin-bottom: var(--space-6);">
+          Scanne den QR-Code am TV oder gib den 6-stelligen Code ein.
+        </p>
+        <input id="code-input" type="text" class="input code-input-field" placeholder="ABC123" maxlength="6" autocomplete="off" autocapitalize="characters" inputmode="text" spellcheck="false">
+        <button id="code-submit" class="btn btn-primary btn-full" style="margin-top: var(--space-4);">Beitreten</button>
+        <p id="code-error" class="error-msg" style="display:none;"></p>
+      </div>
+    </section>
+
     <!-- SESSION ERROR (invalid code / ended) -->
     <section id="view-error" class="view">
       <div class="center-stack">

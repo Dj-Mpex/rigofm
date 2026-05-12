@@ -7,7 +7,13 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js"
   },
-  "keywords": ["jukebox", "party", "youtube", "voting", "rigo-fm"],
+  "keywords": [
+    "jukebox",
+    "party",
+    "youtube",
+    "voting",
+    "rigo-fm"
+  ],
   "author": "Dj-Mpex",
   "license": "UNLICENSED",
   "private": true,
@@ -15,13 +21,15 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "express": "^4.21.0",
-    "socket.io": "^4.8.0",
     "better-sqlite3": "^11.3.0",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
-    "qrcode": "^1.5.4",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.5.1",
     "googleapis": "^144.0.0",
+    "helmet": "^8.1.0",
     "nanoid": "^5.0.7",
-    "cookie-parser": "^1.4.7"
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.0"
   }
 }
