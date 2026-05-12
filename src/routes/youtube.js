@@ -115,8 +115,18 @@ router.get('/search', async (req, res) => {
 
     res.json({ results });
   } catch (err) {
-    console.error('YouTube search error:', err);
-    res.status(500).json({ error: 'Suche fehlgeschlagen' });
+    console.error('=== YouTube Search Error ===');
+    console.error('Message:', err.message);
+    console.error('Status:', err.status || err.code);
+    if (err.response && err.response.data) {
+      console.error('API Response:', JSON.stringify(err.response.data, null, 2));
+    }
+    if (err.errors) {
+      console.error('API Errors:', JSON.stringify(err.errors, null, 2));
+    }
+    console.error('Stack:', err.stack);
+    console.error('===========================');
+    res.status(500).json({ error: err.message || 'Unbekannter Fehler', results: [] });
   }
 });
 
