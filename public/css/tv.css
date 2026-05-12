@@ -840,3 +840,69 @@ body::before {
   font-family: var(--font-mono, monospace); letter-spacing: 0.1em;
 }
 
+/* === DJ Profile Card on TV (live-dj mode only) === */
+.tv-dj-profile-section {
+  margin-bottom: var(--space-4, 16px);
+}
+.tv-dj-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(255,107,26,0.1) 0%, rgba(255,107,26,0.02) 100%);
+  border: 1px solid rgba(255,107,26,0.3);
+  border-radius: 14px;
+  box-shadow: 0 0 32px rgba(255,107,26,0.1);
+}
+.tv-dj-profile-logo-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.tv-dj-profile-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: none;
+}
+.tv-dj-profile-logo.is-loaded {
+  display: block;
+}
+.tv-dj-profile-logo-fallback {
+  font-size: 1.8rem;
+  display: grid;
+  place-items: center;
+}
+.tv-dj-profile-logo.is-loaded + .tv-dj-profile-logo-fallback {
+  display: none;
+}
+.tv-dj-profile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tv-dj-profile-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255,107,26,0.7);
+  font-weight: 700;
+}
+.tv-dj-profile-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

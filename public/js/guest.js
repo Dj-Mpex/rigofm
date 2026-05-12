@@ -94,6 +94,7 @@
     sessionCode: null,
     sessionId: null,
     sessionName: null,
+    sessionMode: 'auto',
     guest: null,           // { id, name } once joined
     queue: [],
     pendingAction: null,   // queued action waiting for name modal
@@ -213,6 +214,13 @@
       state.sessionCode = session.code;
       state.sessionName = session.name;
 
+      try {
+        const modeRes = await api('/api/sessions/mode');
+        state.sessionMode = modeRes.mode || 'auto';
+      } catch (e) {
+        state.sessionMode = 'auto';
+      }
+
       // Restore guest from storage if it matches this session
       const stored = loadStored();
       if (stored && stored.sessionCode === session.code && stored.guest) {
@@ -304,6 +312,13 @@
     });
 
     state.socket.on('queue:updated', refreshQueue);
+
+    state.socket.on('config:changed', async () => {
+      try {
+        const modeRes = await api('/api/sessions/mode');
+        state.sessionMode = modeRes.mode || 'auto';
+      } catch {}
+    });
 
     // Refresh when tab becomes visible again (e.g. user switched away and back)
     document.addEventListener('visibilitychange', () => {
@@ -505,24 +520,26 @@
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
-  async function onAddClick(track, resultEl) {
+  function onAddClick(track, resultEl) {
     if (!requireGuest({ type: 'add', track })) return;
 
-    const btn = resultEl.querySelector('.g-result-add');
-    btn.disabled = true;
-    btn.textContent = '…';
+    askForGuestMessage(async () => {
+      const btn = resultEl.querySelector('.g-result-add');
+      btn.disabled = true;
+      btn.textContent = '…';
 
-    try {
-      await addTrack(track);
-      btn.textContent = '✓';
-      toast(`"${track.title.slice(0, 40)}…" hinzugefügt`, 'success');
-      refreshQueue();
-      setTimeout(() => { btn.disabled = false; btn.textContent = '+'; }, 1500);
-    } catch (err) {
-      btn.disabled = false;
-      btn.textContent = '+';
-      toast(err.message, 'error');
-    }
+      try {
+        await addTrack(track);
+        btn.textContent = '✓';
+        toast(`"${track.title.slice(0, 40)}…" hinzugefügt`, 'success');
+        refreshQueue();
+        setTimeout(() => { btn.disabled = false; btn.textContent = '+'; }, 1500);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '+';
+        toast(err.message, 'error');
+      }
+    });
   }
 
   async function addTrack(track) {
@@ -534,7 +551,8 @@
         title: track.title,
         artist: track.artist,
         thumbnail: track.thumbnail,
-        duration: track.duration
+        duration: track.duration,
+        guest_message: state.sessionMode === 'live-dj' ? (window._pendingGuestMessage || '').trim() : undefined
       })
     });
   }
@@ -678,6 +696,54 @@
       }
       list.appendChild(card);
     });
+  }
+
+  function askForGuestMessage(callback) {
+    if (state.sessionMode !== 'live-dj') {
+      window._pendingGuestMessage = '';
+      callback();
+      return;
+    }
+
+    const modal = $('guest-message-modal');
+    const input = $('guest-message-input');
+    const submitBtn = $('guest-message-submit');
+    const skipBtn = $('guest-message-skip');
+    const counter = $('guest-message-counter');
+
+    if (!modal || !input) {
+      window._pendingGuestMessage = '';
+      callback();
+      return;
+    }
+
+    input.value = '';
+    counter.textContent = '0 / 200';
+    modal.classList.add('is-visible');
+    setTimeout(() => input.focus(), 100);
+
+    const updateCounter = () => {
+      counter.textContent = `${input.value.length} / 200`;
+    };
+    input.addEventListener('input', updateCounter);
+
+    const cleanup = () => {
+      modal.classList.remove('is-visible');
+      input.removeEventListener('input', updateCounter);
+      submitBtn.onclick = null;
+      skipBtn.onclick = null;
+    };
+
+    submitBtn.onclick = () => {
+      window._pendingGuestMessage = input.value.trim().slice(0, 200);
+      cleanup();
+      callback();
+    };
+    skipBtn.onclick = () => {
+      window._pendingGuestMessage = '';
+      cleanup();
+      callback();
+    };
   }
 
   // --- Start ---

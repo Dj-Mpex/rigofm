@@ -128,6 +128,22 @@
     <canvas id="confetti-canvas"></canvas>
   </div>
 
+  <!-- Guest message modal (only used in live-dj mode) -->
+  <div id="guest-message-modal" class="guest-msg-modal">
+    <div class="guest-msg-box">
+      <h3 class="guest-msg-title">Gruß an den DJ?</h3>
+      <p class="guest-msg-hint">Optional, max. 200 Zeichen — kommt direkt beim DJ an.</p>
+      <textarea id="guest-message-input" maxlength="200" placeholder="z. B. „Für meine Schwester zum Geburtstag!"" rows="3"></textarea>
+      <div class="guest-msg-counter-row">
+        <span id="guest-message-counter">0 / 200</span>
+      </div>
+      <div class="guest-msg-actions">
+        <button id="guest-message-skip" class="btn btn-secondary">Ohne Gruß</button>
+        <button id="guest-message-submit" class="btn btn-primary">Senden</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/guest.js"></script>
 </body>

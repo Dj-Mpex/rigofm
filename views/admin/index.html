@@ -31,6 +31,10 @@
         <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
         <div class="topbar-right">
           <span id="connection-status" class="conn-dot" title="Verbindung"></span>
+          <div id="mode-toggle" class="admin-mode-toggle" style="display:none;">
+            <button id="mode-btn-auto" class="admin-mode-btn is-active" data-mode="auto">Auto</button>
+            <button id="mode-btn-live" class="admin-mode-btn" data-mode="live-dj">Live-DJ</button>
+          </div>
           <button id="logout-btn" class="btn btn-ghost btn-sm">Logout</button>
         </div>
       </header>
@@ -45,6 +49,7 @@
 
         <!-- Active Session State -->
         <div id="active-session-state" style="display:none;">
+          <div id="non-dj-content">
           <div class="session-header card-raised">
             <div>
               <h2 id="session-name">Party</h2>
@@ -137,8 +142,9 @@
       </div>
 
           <!-- Tab nav -->
-          <div class="admin-tabs" style="margin-top: var(--space-6);">
+          <div id="admin-tabs-bar" class="admin-tabs" style="margin-top: var(--space-6);">
             <button class="admin-tab active" data-tab="queue">Queue</button>
+            <button class="admin-tab" data-tab="dj">DJ-Ansicht</button>
             <button class="admin-tab" data-tab="history">Verlauf</button>
             <button class="admin-tab" data-tab="charts">Charts</button>
           </div>
@@ -152,6 +158,103 @@
               </div>
               <div id="queue-list" class="queue-list"></div>
               <p id="queue-empty" style="display:none; text-align:center; padding: var(--space-8); color: var(--color-text-muted);">Noch keine Songs in der Queue</p>
+            </div>
+          </section>
+
+          </div> <!-- /#non-dj-content -->
+
+          <!-- DJ-Ansicht tab -->
+          <section id="admin-tab-dj" class="admin-tab-content" style="display:none;">
+            <div class="dj-cockpit">
+
+              <!-- DJ Profile Manager (top of cockpit) -->
+              <div class="dj-profile-section">
+                <div class="dj-section-label">
+                  <span>AUFLEGENDER DJ</span>
+                  <button id="dj-profile-add-btn" class="dj-profile-add-btn">+ Neues Profil</button>
+                </div>
+                <div id="dj-profile-list" class="dj-profile-list">
+                  <p class="dj-empty-state">Noch keine DJ-Profile angelegt.</p>
+                </div>
+              </div>
+
+              <!-- NOW PLAYING — top, big -->
+              <div class="dj-now-section">
+                <div class="dj-section-label">
+                  <span class="dj-pulse-dot"></span>
+                  <span>NOW PLAYING</span>
+                </div>
+                <div id="dj-now-card" class="dj-now-card">
+                  <p class="dj-empty-state">Kein Track läuft gerade.</p>
+                </div>
+              </div>
+
+              <!-- QUEUE — middle, sorted by score -->
+              <div class="dj-queue-section">
+                <div class="dj-section-label">
+                  <span>QUEUE</span>
+                  <span class="dj-section-hint">sortiert nach Votes</span>
+                  <span id="dj-queue-count-badge" class="dj-count-badge">0</span>
+                </div>
+                <div id="dj-queue-list" class="dj-list">
+                  <p class="dj-empty-state">Queue ist leer.</p>
+                </div>
+              </div>
+
+              <!-- PENDING — bottom -->
+              <div class="dj-pending-section">
+                <div class="dj-section-label">
+                  <span>WÜNSCHE</span>
+                  <span class="dj-section-hint">warten auf Freigabe</span>
+                  <span id="dj-pending-count-badge" class="dj-count-badge dj-count-badge--warning">0</span>
+                </div>
+                <div id="dj-pending-list" class="dj-list">
+                  <p class="dj-empty-state">Keine offenen Wünsche.</p>
+                </div>
+              </div>
+
+              <!-- Visuals Section (collapsed by default) -->
+              <details class="dj-visuals-section">
+                <summary class="dj-visuals-summary">
+                  <span class="dj-visuals-summary-label">🎬 Visuals & TV-Quelle</span>
+                  <span id="dj-visuals-summary-status" class="dj-visuals-summary-status">Tracks · Audio an</span>
+                  <span class="dj-visuals-summary-chevron">▾</span>
+                </summary>
+
+                <div class="dj-visuals-content">
+
+                  <!-- TV Source Toggle -->
+                  <div class="dj-visuals-row">
+                    <span class="dj-visuals-row-label">TV zeigt</span>
+                    <div class="dj-source-toggle">
+                      <button id="dj-source-tracks" class="dj-source-btn is-active" data-source="tracks">Track-Videos</button>
+                      <button id="dj-source-visuals" class="dj-source-btn" data-source="visuals">Visuals</button>
+                    </div>
+                  </div>
+
+                  <!-- TV Mute Toggle -->
+                  <div class="dj-visuals-row">
+                    <span class="dj-visuals-row-label">TV-Audio</span>
+                    <div class="dj-source-toggle">
+                      <button id="dj-mute-off" class="dj-source-btn is-active" data-muted="false">🔊 An</button>
+                      <button id="dj-mute-on" class="dj-source-btn" data-muted="true">🔇 Stumm</button>
+                    </div>
+                  </div>
+
+                  <!-- Visuals Preset List -->
+                  <div class="dj-visuals-presets">
+                    <div class="dj-section-label" style="margin-top: 8px;">
+                      <span>VISUALS-PRESETS</span>
+                      <button id="dj-visuals-add-btn" class="dj-profile-add-btn">+ Neues Preset</button>
+                    </div>
+                    <div id="dj-visuals-list" class="dj-profile-list">
+                      <p class="dj-empty-state">Noch keine Visuals-Presets.</p>
+                    </div>
+                  </div>
+
+                </div>
+              </details>
+
             </div>
           </section>
 
@@ -234,6 +337,51 @@
         </div>
       </div>
     </div>
+
+  <!-- DJ Profile Modal -->
+  <div id="dj-profile-modal" class="guest-msg-modal">
+    <div class="guest-msg-box" style="max-width: 500px;">
+      <h3 class="guest-msg-title" id="dj-profile-modal-title">Neues DJ-Profil</h3>
+      <div style="margin-bottom: var(--space-4);">
+        <label class="form-label">Name</label>
+        <input id="dj-profile-name-input" type="text" class="input" placeholder="z. B. DJ Mpex" maxlength="60">
+      </div>
+      <div style="margin-bottom: var(--space-4);">
+        <label class="form-label">Logo (PNG oder JPG, max. 5MB)</label>
+        <input id="dj-profile-logo-input" type="file" accept="image/png,image/jpeg" class="input" style="padding: 8px;">
+        <div id="dj-profile-current-logo" style="margin-top: 12px; display: none;">
+          <small style="color: var(--color-text-muted); font-size: var(--font-size-xs);">Aktuelles Logo:</small>
+          <img id="dj-profile-current-logo-img" alt="" style="display: block; max-width: 120px; max-height: 60px; margin-top: 4px; background: rgba(255,255,255,0.05); padding: 6px; border-radius: 6px;">
+        </div>
+      </div>
+      <p id="dj-profile-modal-error" class="error-msg" style="display:none;"></p>
+      <div class="guest-msg-actions">
+        <button id="dj-profile-cancel" class="btn btn-secondary">Abbrechen</button>
+        <button id="dj-profile-save" class="btn btn-primary">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visuals Preset Modal -->
+  <div id="visuals-preset-modal" class="guest-msg-modal">
+    <div class="guest-msg-box" style="max-width: 500px;">
+      <h3 class="guest-msg-title" id="visuals-preset-modal-title">Neues Visuals-Preset</h3>
+      <div style="margin-bottom: var(--space-4);">
+        <label class="form-label">Name</label>
+        <input id="visuals-preset-name-input" type="text" class="input" placeholder="z. B. Equalizer Loop" maxlength="60">
+      </div>
+      <div style="margin-bottom: var(--space-4);">
+        <label class="form-label">YouTube-Link oder Video/Playlist-ID</label>
+        <input id="visuals-preset-source-input" type="text" class="input" placeholder="https://www.youtube.com/watch?v=...">
+        <small style="color: var(--color-text-muted); font-size: var(--font-size-xs); margin-top: 4px; display: block;">Erkennt automatisch ob Einzelvideo oder Playlist.</small>
+      </div>
+      <p id="visuals-preset-modal-error" class="error-msg" style="display:none;"></p>
+      <div class="guest-msg-actions">
+        <button id="visuals-preset-cancel" class="btn btn-secondary">Abbrechen</button>
+        <button id="visuals-preset-save" class="btn btn-primary">Speichern</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/admin.js"></script>

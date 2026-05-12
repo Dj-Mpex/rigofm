@@ -261,4 +261,38 @@ router.get('/charts', (req, res) => {
   }
 });
 
+// GET current mode (auto / live-dj)
+router.get('/mode', (req, res) => {
+  try {
+    const session = db.prepare("SELECT mode FROM sessions WHERE active = 1 LIMIT 1").get();
+    res.json({ mode: session?.mode || 'auto' });
+  } catch (err) {
+    console.error('Get mode error:', err);
+    res.status(500).json({ error: 'Konnte Modus nicht laden' });
+  }
+});
+
+// PUT switch mode
+router.put('/mode', (req, res) => {
+  try {
+    const { mode } = req.body;
+    if (mode !== 'auto' && mode !== 'live-dj') {
+      return res.status(400).json({ error: 'Mode muss "auto" oder "live-dj" sein' });
+    }
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
+
+    db.prepare("UPDATE sessions SET mode = ? WHERE id = ?").run(mode, session.id);
+
+    const sockets = req.app.locals.sockets;
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
+    if (sockets && sockets.broadcastQueue) sockets.broadcastQueue(session.code);
+
+    res.json({ success: true, mode });
+  } catch (err) {
+    console.error('Set mode error:', err);
+    res.status(500).json({ error: 'Konnte Modus nicht setzen' });
+  }
+});
+
 module.exports = router;

@@ -67,6 +67,11 @@
     await refreshAll();
     loadFilters();
     bindFilterUI();
+    bindModeToggle();
+    bindDjProfileModal();
+    bindVisualsUI();
+    await loadMode();
+    bootLiveDjStateOnce();
   }
 
   async function refreshAll() {
@@ -84,11 +89,13 @@
   function renderNoSession() {
     $('no-session-state').style.display = 'block';
     $('active-session-state').style.display = 'none';
+    if ($('mode-toggle')) $('mode-toggle').style.display = 'none';
   }
 
   function renderSessionActive(session) {
     $('no-session-state').style.display = 'none';
     $('active-session-state').style.display = 'block';
+    if ($('mode-toggle')) $('mode-toggle').style.display = 'flex';
     $('session-name').textContent = session.name;
     $('session-code').textContent = session.code;
 
@@ -117,6 +124,14 @@
     socket.on('queue:updated', () => {
       refreshQueue();
       refreshGuests();
+      if (document.body.classList.contains('live-dj-active')) loadDjView();
+    });
+    socket.on('config:changed', () => {
+      loadMode();
+      if (document.body.classList.contains('live-dj-active')) loadDjView();
+    });
+    socket.on('pending:updated', () => {
+      if (document.body.classList.contains('live-dj-active')) loadDjView();
     });
     socket.on('player:state', onPlayerState);
   }
@@ -566,6 +581,7 @@
       document.querySelectorAll('.admin-tab-content').forEach(s => s.style.display = 'none');
       const section = document.getElementById(`admin-tab-${tabName}`);
       if (section) section.style.display = 'block';
+      if (tabName === 'dj') loadDjView();
       if (tabName === 'history') loadHistory();
       if (tabName === 'charts') loadCharts();
     });
@@ -693,6 +709,236 @@
     }).join('');
   }
 
+  // === Mode Toggle ===
+  let currentMode = 'auto';
+
+  async function loadMode() {
+    try {
+      const { mode } = await api('/api/sessions/mode');
+      currentMode = mode || 'auto';
+      setModeButtonActive(currentMode);
+      const toggle = $('mode-toggle');
+      if (toggle) toggle.style.display = currentSession ? 'flex' : 'none';
+    } catch (err) {
+      console.error('loadMode:', err);
+    }
+  }
+
+  function setModeButtonActive(mode) {
+    const b1 = $('mode-btn-auto');
+    const b2 = $('mode-btn-live');
+    if (b1) b1.classList.toggle('is-active', mode === 'auto');
+    if (b2) b2.classList.toggle('is-active', mode === 'live-dj');
+
+    // Toggle body class for cockpit fullscreen mode
+    document.body.classList.toggle('live-dj-active', mode === 'live-dj');
+
+    // When switching INTO live mode, force-activate the DJ tab
+    if (mode === 'live-dj') {
+      document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+      const djTab = document.querySelector('.admin-tab[data-tab="dj"]');
+      if (djTab) djTab.classList.add('active');
+      document.querySelectorAll('.admin-tab-content').forEach(s => s.style.display = 'none');
+      const djSec = $('admin-tab-dj');
+      if (djSec) djSec.style.display = 'block';
+      loadDjView();
+    }
+  }
+
+  async function setMode(mode) {
+    try {
+      await api('/api/sessions/mode', { method: 'PUT', body: JSON.stringify({ mode }) });
+      setModeButtonActive(mode);
+      if (mode === 'live-dj') {
+        startDjPolling();
+      } else {
+        stopDjPolling();
+      }
+    } catch (e) {
+      alert('Konnte Modus nicht setzen: ' + e.message);
+    }
+  }
+
+  function bindModeToggle() {
+    document.querySelectorAll('.admin-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.mode !== currentMode) setMode(btn.dataset.mode);
+      });
+    });
+  }
+
+  // === DJ View ===
+  let _djPollTimer = null;
+
+  async function loadDjView() {
+    try {
+      const [pendingRes, queueRes] = await Promise.all([
+        api('/api/tracks/pending'),
+        api('/api/tracks/queue')
+      ]);
+      const allQueue = queueRes.queue || [];
+      const playing = allQueue.find(t => t.status === 'playing');
+      const queued = allQueue
+        .filter(t => t.status === 'queued')
+        .sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      renderDjNowPlaying(playing);
+      renderDjQueue(queued);
+      renderDjPending(pendingRes.pending || []);
+      loadDjProfiles();
+      loadVisuals();
+    } catch (e) {
+      console.error('Load DJ view:', e);
+    }
+  }
+
+  function startDjPolling() {
+    stopDjPolling();
+    _djPollTimer = setInterval(() => {
+      if (document.body.classList.contains('live-dj-active')) {
+        loadDjView();
+      }
+    }, 5000);
+  }
+  function stopDjPolling() {
+    if (_djPollTimer) { clearInterval(_djPollTimer); _djPollTimer = null; }
+  }
+
+  function renderDjNowPlaying(track) {
+    const c = $('dj-now-card');
+    if (!c) return;
+    if (!track) {
+      c.innerHTML = '<p class="dj-empty-state">Kein Track läuft gerade.</p>';
+      return;
+    }
+    const emoji = track.added_by_emoji ? track.added_by_emoji + ' ' : '';
+    const msg = track.guest_message
+      ? `<div class="dj-now-msg">„${escapeHtml(track.guest_message)}"</div>`
+      : '';
+    c.innerHTML = `
+      <div class="dj-now-card-inner">
+        <img src="${escapeHtml(track.thumbnail || '')}" alt="" class="dj-now-thumb">
+        <div class="dj-now-info">
+          <div class="dj-now-title">${escapeHtml(track.title || '')}</div>
+          <div class="dj-now-sub">${escapeHtml(track.artist || '')}</div>
+          <div class="dj-now-by">${emoji}${escapeHtml(track.added_by_name || '?')}</div>
+          ${msg}
+        </div>
+        <div class="dj-now-action">
+          <span class="dj-now-live-indicator">▶ LÄUFT</span>
+          <button class="dj-btn-played-small" data-played="${track.id}">Als gespielt markieren</button>
+        </div>
+      </div>
+    `;
+    c.querySelector('[data-played]')?.addEventListener('click', async (e) => {
+      const id = e.target.getAttribute('data-played');
+      try {
+        await api(`/api/tracks/${id}/mark-played`, { method: 'POST', body: '{}' });
+        loadDjView();
+      } catch (err) { alert(err.message); }
+    });
+  }
+
+  function renderDjQueue(items) {
+    const badge = $('dj-queue-count-badge');
+    if (badge) badge.textContent = items.length;
+
+    const c = $('dj-queue-list');
+    if (!c) return;
+    if (!items.length) {
+      c.innerHTML = '<p class="dj-empty-state">Queue ist leer.</p>';
+      return;
+    }
+    c.innerHTML = items.map((t, i) => {
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      const msg = t.guest_message
+        ? `<div class="dj-track-msg">„${escapeHtml(t.guest_message)}"</div>`
+        : '';
+      const sign = t.score > 0 ? '+' : '';
+      return `
+        <div class="dj-track-row">
+          <span class="dj-track-rank">${i + 1}</span>
+          <img src="${escapeHtml(t.thumbnail || '')}" class="dj-track-thumb-md" alt="">
+          <div class="dj-track-main">
+            <div class="dj-track-title">${escapeHtml(t.title || '')}</div>
+            <div class="dj-track-sub">${escapeHtml(t.artist || '')} · ${emoji}${escapeHtml(t.added_by_name || '?')}</div>
+            ${msg}
+          </div>
+          <div class="dj-track-score">
+            <span class="dj-track-score-num">${sign}${t.score || 0}</span>
+            <span class="dj-track-score-label">Votes</span>
+          </div>
+          <div class="dj-track-actions">
+            <button class="dj-btn-play" data-startplay="${escapeHtml(t.id)}">▶ Jetzt spielen</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    c.querySelectorAll('[data-startplay]').forEach(b => b.addEventListener('click', async () => {
+      const id = b.getAttribute('data-startplay');
+      try {
+        await api(`/api/tracks/${id}/mark-playing-manual`, { method: 'POST', body: '{}' });
+        loadDjView();
+      } catch (e) { alert(e.message); }
+    }));
+  }
+
+  function renderDjPending(items) {
+    const badge = $('dj-pending-count-badge');
+    if (badge) badge.textContent = items.length;
+
+    const c = $('dj-pending-list');
+    if (!c) return;
+    if (!items.length) {
+      c.innerHTML = '<p class="dj-empty-state">Keine offenen Wünsche.</p>';
+      return;
+    }
+    c.innerHTML = items.map(t => {
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      const msg = t.guest_message
+        ? `<div class="dj-track-msg">„${escapeHtml(t.guest_message)}"</div>`
+        : '';
+      return `
+        <div class="dj-track-row">
+          <img src="${escapeHtml(t.thumbnail || '')}" class="dj-track-thumb-md" alt="">
+          <div class="dj-track-main">
+            <div class="dj-track-title">${escapeHtml(t.title || '')}</div>
+            <div class="dj-track-sub">${escapeHtml(t.artist || '')} · ${emoji}${escapeHtml(t.added_by_name || '?')}</div>
+            ${msg}
+          </div>
+          <div class="dj-track-actions">
+            <button class="dj-btn-approve" data-approve="${escapeHtml(t.id)}">✓ Annehmen</button>
+            <button class="dj-btn-reject" data-reject="${escapeHtml(t.id)}">✕ Ablehnen</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+    c.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', async () => {
+      const id = b.getAttribute('data-approve');
+      try {
+        await api(`/api/tracks/${id}/approve`, { method: 'POST', body: '{}' });
+        loadDjView();
+      } catch (e) { alert(e.message); }
+    }));
+    c.querySelectorAll('[data-reject]').forEach(b => b.addEventListener('click', async () => {
+      const id = b.getAttribute('data-reject');
+      const note = prompt('Optional: Notiz warum abgelehnt (nur für dich)?') || '';
+      try {
+        await api(`/api/tracks/${id}/reject`, { method: 'POST', body: JSON.stringify({ dj_note: note }) });
+        loadDjView();
+      } catch (e) { alert(e.message); }
+    }));
+  }
+
+  async function bootLiveDjStateOnce() {
+    try {
+      const r = await api('/api/sessions/mode');
+      const mode = r.mode || 'auto';
+      setModeButtonActive(mode);
+      if (mode === 'live-dj') startDjPolling();
+    } catch {}
+  }
+
   // Extract video ID from various YouTube URL formats, or return as-is if it looks like a raw ID
   function extractYouTubeId(input) {
     if (!input) return null;
@@ -727,5 +973,361 @@
     if (m) return m[0];
 
     return null;
+  }
+
+  // === DJ Profile Management ===
+  let _editingProfileId = null;
+
+  async function loadDjProfiles() {
+    try {
+      const r = await api('/api/dj-profiles');
+      renderDjProfileList(r.profiles || [], r.active_id || '');
+    } catch (e) {
+      console.error('Load dj profiles:', e);
+    }
+  }
+
+  function renderDjProfileList(profiles, activeId) {
+    const c = $('dj-profile-list');
+    if (!c) return;
+
+    // Always include a "None" option at the start
+    const noneActive = !activeId || activeId === '';
+    let html = `
+      <div class="dj-profile-card is-none ${noneActive ? 'is-active' : ''}" data-set-active="">
+        <div class="dj-profile-card-logo-placeholder">—</div>
+        <span class="dj-profile-card-name dj-profile-card-name-placeholder">Kein DJ aktiv</span>
+      </div>
+    `;
+
+    html += profiles.map(p => {
+      const isActive = p.id === activeId;
+      const logo = p.logo_filename
+        ? `<img src="/api/dj-profiles/uploads/${escapeHtml(p.logo_filename)}" class="dj-profile-card-logo" alt="">`
+        : `<div class="dj-profile-card-logo-placeholder">🎧</div>`;
+      return `
+        <div class="dj-profile-card ${isActive ? 'is-active' : ''}" data-set-active="${escapeHtml(p.id)}">
+          ${logo}
+          <span class="dj-profile-card-name">${escapeHtml(p.name)}</span>
+          <div class="dj-profile-card-actions">
+            <button class="dj-profile-card-btn" data-edit="${escapeHtml(p.id)}" title="Bearbeiten">✎</button>
+            <button class="dj-profile-card-btn dj-profile-delete" data-delete="${escapeHtml(p.id)}" title="Löschen">×</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    c.innerHTML = html;
+
+    // Click on card → set as active
+    c.querySelectorAll('[data-set-active]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        // Ignore if click was on edit/delete button
+        if (e.target.closest('[data-edit]') || e.target.closest('[data-delete]')) return;
+        const id = el.getAttribute('data-set-active');
+        try {
+          await api(`/api/dj-profiles/active/${encodeURIComponent(id || 'none')}`, { method: 'PUT', body: '{}' });
+          loadDjProfiles();
+        } catch (err) { alert(err.message); }
+      });
+    });
+
+    // Edit button
+    c.querySelectorAll('[data-edit]').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = b.getAttribute('data-edit');
+        const profile = profiles.find(p => p.id === id);
+        if (profile) openDjProfileModal(profile);
+      });
+    });
+
+    // Delete button
+    c.querySelectorAll('[data-delete]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = b.getAttribute('data-delete');
+        if (!confirm('DJ-Profil wirklich löschen?')) return;
+        try {
+          await api(`/api/dj-profiles/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          loadDjProfiles();
+        } catch (err) { alert(err.message); }
+      });
+    });
+  }
+
+  function openDjProfileModal(existingProfile) {
+    _editingProfileId = existingProfile ? existingProfile.id : null;
+    const modal = $('dj-profile-modal');
+    const title = $('dj-profile-modal-title');
+    const nameInput = $('dj-profile-name-input');
+    const fileInput = $('dj-profile-logo-input');
+    const currentLogoWrap = $('dj-profile-current-logo');
+    const currentLogoImg = $('dj-profile-current-logo-img');
+    const errEl = $('dj-profile-modal-error');
+
+    if (existingProfile) {
+      title.textContent = 'DJ-Profil bearbeiten';
+      nameInput.value = existingProfile.name;
+      if (existingProfile.logo_filename) {
+        currentLogoImg.src = `/api/dj-profiles/uploads/${existingProfile.logo_filename}`;
+        currentLogoWrap.style.display = 'block';
+      } else {
+        currentLogoWrap.style.display = 'none';
+      }
+    } else {
+      title.textContent = 'Neues DJ-Profil';
+      nameInput.value = '';
+      currentLogoWrap.style.display = 'none';
+    }
+    fileInput.value = '';
+    errEl.style.display = 'none';
+    modal.classList.add('is-visible');
+    setTimeout(() => nameInput.focus(), 100);
+  }
+
+  function closeDjProfileModal() {
+    $('dj-profile-modal').classList.remove('is-visible');
+    _editingProfileId = null;
+  }
+
+  async function saveDjProfile() {
+    const nameInput = $('dj-profile-name-input');
+    const fileInput = $('dj-profile-logo-input');
+    const errEl = $('dj-profile-modal-error');
+    const saveBtn = $('dj-profile-save');
+
+    const name = nameInput.value.trim();
+    if (!name) {
+      errEl.textContent = 'Name ist erforderlich.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('name', name);
+    if (fileInput.files[0]) {
+      formData.append('logo', fileInput.files[0]);
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Speichere…';
+    errEl.style.display = 'none';
+
+    try {
+      const url = _editingProfileId
+        ? `/api/dj-profiles/${encodeURIComponent(_editingProfileId)}`
+        : '/api/dj-profiles';
+      const method = _editingProfileId ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Fehler');
+      closeDjProfileModal();
+      loadDjProfiles();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Speichern';
+    }
+  }
+
+  function bindDjProfileModal() {
+    $('dj-profile-add-btn')?.addEventListener('click', () => openDjProfileModal(null));
+    $('dj-profile-cancel')?.addEventListener('click', closeDjProfileModal);
+    $('dj-profile-save')?.addEventListener('click', saveDjProfile);
+    $('dj-profile-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'dj-profile-modal') closeDjProfileModal();
+    });
+  }
+
+  // === Visuals Presets Management ===
+  let _editingVisualsId = null;
+
+  async function loadVisuals() {
+    try {
+      const r = await api('/api/visuals');
+      renderVisualsList(r.presets || [], r.active_id || '');
+      renderSourceToggle(r.tv_source || 'tracks');
+      renderMuteToggle(r.tv_muted === true);
+      renderVisualsSummary(r);
+    } catch (e) {
+      console.error('Load visuals:', e);
+    }
+  }
+
+  function renderVisualsSummary(r) {
+    const status = $('dj-visuals-summary-status');
+    if (!status) return;
+    const sourceLabel = r.tv_source === 'visuals' ? 'Visuals' : 'Tracks';
+    const muteLabel = r.tv_muted ? 'stumm' : 'Audio an';
+    status.textContent = `${sourceLabel} · ${muteLabel}`;
+  }
+
+  function renderSourceToggle(source) {
+    const a = $('dj-source-tracks');
+    const b = $('dj-source-visuals');
+    if (a) a.classList.toggle('is-active', source === 'tracks');
+    if (b) b.classList.toggle('is-active', source === 'visuals');
+  }
+
+  function renderMuteToggle(muted) {
+    const a = $('dj-mute-off');
+    const b = $('dj-mute-on');
+    if (a) a.classList.toggle('is-active', !muted);
+    if (b) b.classList.toggle('is-active', muted);
+  }
+
+  function renderVisualsList(presets, activeId) {
+    const c = $('dj-visuals-list');
+    if (!c) return;
+
+    if (!presets.length) {
+      c.innerHTML = '<p class="dj-empty-state">Noch keine Visuals-Presets.</p>';
+      return;
+    }
+
+    c.innerHTML = presets.map(p => {
+      const isActive = p.id === activeId;
+      const typeLabel = p.source_type === 'playlist' ? 'PLAYLIST' : 'VIDEO';
+      return `
+        <div class="dj-profile-card ${isActive ? 'is-active' : ''}" data-vset-active="${escapeHtml(p.id)}">
+          <div class="dj-profile-card-logo-placeholder">🎬</div>
+          <span class="dj-profile-card-name">
+            ${escapeHtml(p.name)}
+            <span class="dj-visuals-preset-type">${typeLabel}</span>
+          </span>
+          <div class="dj-profile-card-actions">
+            <button class="dj-profile-card-btn" data-vedit="${escapeHtml(p.id)}" title="Bearbeiten">✎</button>
+            <button class="dj-profile-card-btn dj-profile-delete" data-vdelete="${escapeHtml(p.id)}" title="Löschen">×</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    c.querySelectorAll('[data-vset-active]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-vedit]') || e.target.closest('[data-vdelete]')) return;
+        const id = el.getAttribute('data-vset-active');
+        try {
+          await api(`/api/visuals/active/${encodeURIComponent(id)}`, { method: 'PUT', body: '{}' });
+          loadVisuals();
+        } catch (err) { alert(err.message); }
+      });
+    });
+
+    c.querySelectorAll('[data-vedit]').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = b.getAttribute('data-vedit');
+        const preset = presets.find(p => p.id === id);
+        if (preset) openVisualsModal(preset);
+      });
+    });
+
+    c.querySelectorAll('[data-vdelete]').forEach(b => {
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = b.getAttribute('data-vdelete');
+        if (!confirm('Visuals-Preset wirklich löschen?')) return;
+        try {
+          await api(`/api/visuals/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          loadVisuals();
+        } catch (err) { alert(err.message); }
+      });
+    });
+  }
+
+  function openVisualsModal(existingPreset) {
+    _editingVisualsId = existingPreset ? existingPreset.id : null;
+    const modal = $('visuals-preset-modal');
+    const title = $('visuals-preset-modal-title');
+    const nameInput = $('visuals-preset-name-input');
+    const sourceInput = $('visuals-preset-source-input');
+    const errEl = $('visuals-preset-modal-error');
+
+    if (existingPreset) {
+      title.textContent = 'Visuals-Preset bearbeiten';
+      nameInput.value = existingPreset.name;
+      const sourceDisplay = existingPreset.source_type === 'playlist'
+        ? `https://www.youtube.com/playlist?list=${existingPreset.source_id}`
+        : `https://www.youtube.com/watch?v=${existingPreset.source_id}`;
+      sourceInput.value = sourceDisplay;
+    } else {
+      title.textContent = 'Neues Visuals-Preset';
+      nameInput.value = '';
+      sourceInput.value = '';
+    }
+    errEl.style.display = 'none';
+    modal.classList.add('is-visible');
+    setTimeout(() => nameInput.focus(), 100);
+  }
+
+  function closeVisualsModal() {
+    $('visuals-preset-modal').classList.remove('is-visible');
+    _editingVisualsId = null;
+  }
+
+  async function saveVisualsPreset() {
+    const nameInput = $('visuals-preset-name-input');
+    const sourceInput = $('visuals-preset-source-input');
+    const errEl = $('visuals-preset-modal-error');
+    const saveBtn = $('visuals-preset-save');
+
+    const name = nameInput.value.trim();
+    const source = sourceInput.value.trim();
+    if (!name || !source) {
+      errEl.textContent = 'Name und YouTube-Quelle erforderlich.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Speichere…';
+    errEl.style.display = 'none';
+
+    try {
+      const url = _editingVisualsId
+        ? `/api/visuals/${encodeURIComponent(_editingVisualsId)}`
+        : '/api/visuals';
+      const method = _editingVisualsId ? 'PUT' : 'POST';
+      await api(url, { method, body: JSON.stringify({ name, source }) });
+      closeVisualsModal();
+      loadVisuals();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Speichern';
+    }
+  }
+
+  async function setTvSource(source) {
+    try {
+      await api('/api/visuals/tv-source', { method: 'PUT', body: JSON.stringify({ source }) });
+      loadVisuals();
+    } catch (e) { alert(e.message); }
+  }
+
+  async function setTvMute(muted) {
+    try {
+      await api('/api/visuals/tv-mute', { method: 'PUT', body: JSON.stringify({ muted }) });
+      loadVisuals();
+    } catch (e) { alert(e.message); }
+  }
+
+  function bindVisualsUI() {
+    $('dj-visuals-add-btn')?.addEventListener('click', () => openVisualsModal(null));
+    $('visuals-preset-cancel')?.addEventListener('click', closeVisualsModal);
+    $('visuals-preset-save')?.addEventListener('click', saveVisualsPreset);
+    $('visuals-preset-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'visuals-preset-modal') closeVisualsModal();
+    });
+    $('dj-source-tracks')?.addEventListener('click', () => setTvSource('tracks'));
+    $('dj-source-visuals')?.addEventListener('click', () => setTvSource('visuals'));
+    $('dj-mute-off')?.addEventListener('click', () => setTvMute(false));
+    $('dj-mute-on')?.addEventListener('click', () => setTvMute(true));
   }
 })();

@@ -161,6 +161,16 @@ router.post('/', (req, res) => {
     });
   }
 
+  // Determine status based on session mode
+  const sessionRow = db.prepare("SELECT mode FROM sessions WHERE id = ?").get(session.id);
+  const isLiveDj = sessionRow?.mode === 'live-dj';
+  const initialStatus = isLiveDj ? 'pending' : 'queued';
+
+  // Capture optional guest message (only used in live-dj mode)
+  const guestMessage = isLiveDj && typeof req.body.guest_message === 'string'
+    ? req.body.guest_message.trim().slice(0, 200)
+    : null;
+
   const track = {
     id: crypto.randomUUID(),
     session_id: session.id,
@@ -171,16 +181,17 @@ router.post('/', (req, res) => {
     duration: duration || null,
     added_by_guest_id: guest.id,
     added_by_name: guest.name,
-    status: 'queued',
+    status: initialStatus,
+    guest_message: guestMessage,
     played_at: null,
     created_at: Date.now()
   };
 
   db.prepare(`
     INSERT INTO tracks (id, session_id, youtube_id, title, artist, thumbnail, duration,
-                        added_by_guest_id, added_by_name, status, played_at, created_at)
+                        added_by_guest_id, added_by_name, status, guest_message, played_at, created_at)
     VALUES (@id, @session_id, @youtube_id, @title, @artist, @thumbnail, @duration,
-            @added_by_guest_id, @added_by_name, @status, @played_at, @created_at)
+            @added_by_guest_id, @added_by_name, @status, @guest_message, @played_at, @created_at)
   `).run(track);
 
   // Auto-vote: adder gives their own track an automatic upvote
@@ -195,6 +206,13 @@ router.post('/', (req, res) => {
   }
 
   req.app.locals.sockets.broadcastQueue(session.code);
+
+  // Notify DJ if track is pending (live-dj mode)
+  if (initialStatus === 'pending') {
+    const sockets = req.app.locals.sockets;
+    if (sockets && sockets.broadcastPendingUpdate) sockets.broadcastPendingUpdate();
+  }
+
   res.json({ track: { ...track, score: 1, myVote: 1 } });
 });
 
@@ -367,6 +385,94 @@ router.post('/reorder', (req, res) => {
 
   req.app.locals.sockets.broadcastQueue(session.code);
   res.json({ ok: true, count: orderedIds.length });
+});
+
+// GET pending tracks (only DJ sees these)
+router.get('/pending', (req, res) => {
+  try {
+    const session = db.prepare("SELECT id FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.json({ pending: [] });
+
+    const rows = db.prepare(`
+      SELECT
+        t.*,
+        g.name AS added_by_name,
+        g.emoji AS added_by_emoji
+      FROM tracks t
+      LEFT JOIN guests g ON g.id = t.added_by_guest_id
+      WHERE t.session_id = ? AND t.status = 'pending'
+      ORDER BY t.created_at ASC
+    `).all(session.id);
+
+    res.json({ pending: rows });
+  } catch (err) {
+    console.error('Pending error:', err);
+    res.status(500).json({ error: 'Konnte Pending-Liste nicht laden' });
+  }
+});
+
+// POST approve a pending track
+router.post('/:id/approve', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
+
+    const track = db.prepare("SELECT id, status FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
+    if (!track) return res.status(404).json({ error: 'Track nicht gefunden' });
+    if (track.status !== 'pending') return res.status(400).json({ error: 'Track ist nicht pending' });
+
+    db.prepare("UPDATE tracks SET status = 'queued' WHERE id = ?").run(id);
+
+    req.app.locals.sockets.broadcastQueue(session.code);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Approve error:', err);
+    res.status(500).json({ error: 'Konnte nicht freigeben' });
+  }
+});
+
+// POST reject a pending track (optional dj_note)
+router.post('/:id/reject', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dj_note } = req.body;
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
+
+    const track = db.prepare("SELECT id, status FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
+    if (!track) return res.status(404).json({ error: 'Track nicht gefunden' });
+    if (track.status !== 'pending') return res.status(400).json({ error: 'Track ist nicht pending' });
+
+    const note = typeof dj_note === 'string' ? dj_note.trim().slice(0, 200) : null;
+    db.prepare("UPDATE tracks SET status = 'rejected', dj_note = ? WHERE id = ?").run(note, id);
+
+    req.app.locals.sockets.broadcastQueue(session.code);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Reject error:', err);
+    res.status(500).json({ error: 'Konnte nicht ablehnen' });
+  }
+});
+
+// POST mark playing manually (DJ live mode)
+router.post('/:id/mark-playing-manual', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
+
+    // Mark any currently-playing track as PLAYED (it's gone now, the DJ moved on)
+    db.prepare("UPDATE tracks SET status = 'played', played_at = ? WHERE session_id = ? AND status = 'playing'").run(Date.now(), session.id);
+    // Mark new track as playing
+    db.prepare("UPDATE tracks SET status = 'playing', played_at = ? WHERE id = ?").run(Date.now(), id);
+
+    req.app.locals.sockets.broadcastQueue(session.code);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark playing manual error:', err);
+    res.status(500).json({ error: 'Konnte nicht markieren' });
+  }
 });
 
 module.exports = router;

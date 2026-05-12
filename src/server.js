@@ -18,6 +18,8 @@ const youtubeRouter = require('./routes/youtube');
 const sessionsRouter = require('./routes/sessions');
 const tracksRouter = require('./routes/tracks');
 const settingsRouter = require('./routes/settings');
+const djProfilesRouter = require('./routes/dj-profiles');
+const visualsRouter = require('./routes/visuals');
 const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
@@ -31,7 +33,7 @@ app.set('trust proxy', true);
 // Rate limiters (per IP)
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000,    // 1 minute
-  max: 120,               // 120 req/min general API
+  max: 600,               // 600 req/min general API
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zu viele Anfragen. Bitte kurz warten.' }
@@ -39,7 +41,7 @@ const generalLimiter = rateLimit({
 
 const writeLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,                // 30 writes/min (track add, vote)
+  max: 240,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Zu viele Aktionen. Bitte kurz warten.' }
@@ -87,6 +89,8 @@ app.use('/api/youtube', youtubeRouter);
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/tracks', tracksRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/dj-profiles', djProfilesRouter);
+app.use('/api/visuals', visualsRouter);
 
 // QR code generator
 app.get('/api/qr', async (req, res) => {

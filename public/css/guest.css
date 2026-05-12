@@ -494,3 +494,53 @@ html, body { overscroll-behavior-y: contain; }
   text-transform: uppercase;
   padding: var(--space-4);
 }
+
+/* Guest-message modal (only used in live-dj mode) */
+.guest-msg-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.guest-msg-modal.is-visible { opacity: 1; pointer-events: auto; }
+.guest-msg-box {
+  background: var(--color-bg-raised, #181818);
+  border: 1px solid var(--color-border-warm, rgba(255,107,26,0.3));
+  border-radius: 18px;
+  padding: 24px;
+  width: 100%; max-width: 460px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.guest-msg-title {
+  font-size: 1.25rem; font-weight: 700; margin: 0 0 6px 0;
+  color: var(--color-text, #fff);
+}
+.guest-msg-hint {
+  font-size: 0.875rem; color: var(--color-text-muted, #888);
+  margin: 0 0 16px 0;
+}
+.guest-msg-modal textarea {
+  width: 100%; resize: none;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 12px;
+  font: inherit; color: var(--color-text, #fff);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.guest-msg-modal textarea:focus {
+  border-color: var(--color-primary, #FF6B1A);
+}
+.guest-msg-counter-row {
+  display: flex; justify-content: flex-end;
+  font-size: 0.75rem; color: var(--color-text-faint, #666);
+  margin: 6px 0 16px 0;
+}
+.guest-msg-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+}

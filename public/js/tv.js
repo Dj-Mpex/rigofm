@@ -5,6 +5,9 @@
 
   let state = {
     session: null,
+    sessionId: null,
+    sessionMode: 'auto',
+    activeDjProfile: null,
     queue: [],
     currentTrack: null,   // The track currently playing (from queue)
     isFillerMode: false,
@@ -14,7 +17,11 @@
     socket: null,
     pendingPlayAfterReady: null,
     lastUserVolume: 100,
-    isFading: false
+    isFading: false,
+    tvSource: 'tracks',
+    tvMuted: false,
+    activeVisualsPreset: null,
+    _activeFillerPlaylistId: null
   };
 
   const $ = (id) => document.getElementById(id);
@@ -65,6 +72,21 @@
       state.session = session;
       state.sessionId = session.id;
       state.fillerPlaylistId = playlistId;
+      try {
+        const [modeRes, profileRes] = await Promise.all([
+          api('/api/sessions/mode'),
+          api('/api/dj-profiles/active')
+        ]);
+        state.sessionMode = modeRes.mode || 'auto';
+        state.activeDjProfile = profileRes.profile || null;
+      } catch (e) { /* non-fatal */ }
+      try {
+        const vRes = await api('/api/visuals/active');
+        state.activeVisualsPreset = vRes.preset || null;
+        state.tvSource = vRes.tv_source || 'tracks';
+        state.tvMuted = vRes.tv_muted === true;
+      } catch {}
+      renderDjProfileCard();
       initChartsOverlay();
 
       renderSession();
@@ -128,12 +150,59 @@
 
   async function onConfigChanged() {
     try {
-      const { playlistId } = await api('/api/settings/filler');
+      const [{ playlistId }, modeRes, profileRes, vRes] = await Promise.all([
+        api('/api/settings/filler'),
+        api('/api/sessions/mode'),
+        api('/api/dj-profiles/active'),
+        api('/api/visuals/active')
+      ]);
+
+      const oldFiller = state.fillerPlaylistId;
+      const oldMode = state.sessionMode;
+      const oldSource = state.tvSource;
+      const oldVisualsId = state.activeVisualsPreset ? state.activeVisualsPreset.id : null;
+      const oldMuted = state.tvMuted;
+
       state.fillerPlaylistId = playlistId;
-      // If we're currently in filler mode, restart filler with new playlist
-      if (state.isFillerMode) {
-        startFiller();
+      state.sessionMode = modeRes.mode || 'auto';
+      state.activeDjProfile = profileRes.profile || null;
+      state.activeVisualsPreset = vRes.preset || null;
+      state.tvSource = vRes.tv_source || 'tracks';
+      state.tvMuted = vRes.tv_muted === true;
+      const newVisualsId = state.activeVisualsPreset ? state.activeVisualsPreset.id : null;
+
+      renderDjProfileCard();
+
+      // Apply mute change immediately (no playback restart needed)
+      if (oldMuted !== state.tvMuted && state.player && state.playerReady) {
+        if (state.tvMuted) state.player.mute();
+        else state.player.unMute();
       }
+
+      // Mode switch → re-decide
+      if (oldMode !== state.sessionMode) {
+        state._activeFillerPlaylistId = null; // force reload on next startFiller
+        decideWhatToPlay();
+        return;
+      }
+
+      // Visuals/Source change while in live-dj mode → restart filler with new source
+      if (state.sessionMode === 'live-dj') {
+        if (oldSource !== state.tvSource || (state.tvSource === 'visuals' && oldVisualsId !== newVisualsId)) {
+          state._activeFillerPlaylistId = null;
+          startFiller();
+          return;
+        }
+      }
+
+      // Filler playlist itself changed
+      if (oldFiller !== playlistId && state.isFillerMode && state.tvSource !== 'visuals') {
+        state._activeFillerPlaylistId = null;
+        startFiller();
+        return;
+      }
+
+      // Otherwise: nothing changed that affects current playback
     } catch (err) {
       console.error('config:changed fetch:', err);
     }
@@ -192,30 +261,33 @@
   }
 
   function decideWhatToPlay() {
+    // Live-DJ mode: TV never plays guest tracks, only filler/visuals
+    if (state.sessionMode === 'live-dj') {
+      if (!state.isFillerMode) startFiller();
+      return;
+    }
+
     const playing = state.queue.find(t => t.status === 'playing');
     const nextQueued = state.queue.find(t => t.status === 'queued');
 
     if (playing) {
-      // Backend already has something marked as playing -> ensure we are playing it
       if (!state.currentTrack || state.currentTrack.id !== playing.id || state.isFillerMode) {
         playTrack(playing);
       }
       return;
     }
 
-    // No one is currently playing
     if (state.currentTrack && !state.isFillerMode) {
       state.currentTrack = null;
     }
 
-    // Queued track exists -> mark as playing and play it immediately
-    // (even if filler is currently running)
     if (nextQueued) {
       markAndPlay(nextQueued);
       return;
     }
 
-    // Nothing queued and nothing playing -> start filler (if not already)
+    // Nothing to play AND we are not currently in filler → start filler
+    // BUT do NOT restart if filler is already running
     if (!state.isFillerMode) {
       startFiller();
     }
@@ -268,11 +340,19 @@
         startFiller();
       }
     }
+    // Apply initial mute state once player is ready
+    if (state.tvMuted) state.player.mute();
   }
 
   function onPlayerStateChange(e) {
     // YT.PlayerState.ENDED = 0
     if (e.data === 0) {
+      // If in filler mode with a single video (visuals), loop it
+      if (state.isFillerMode && state.activeVisualsPreset && state.activeVisualsPreset.source_type === 'video' && state.tvSource === 'visuals') {
+        state.player.seekTo(0);
+        state.player.playVideo();
+        return;
+      }
       onTrackEnded();
     }
   }
@@ -316,27 +396,59 @@
   }
 
   function startFiller() {
-    if (!state.fillerPlaylistId) {
-      // No filler configured -> go idle screen
+    // Pick source: visuals preset (in live-dj mode with visuals on) OR normal filler playlist
+    const useVisuals = (state.sessionMode === 'live-dj' && state.tvSource === 'visuals' && state.activeVisualsPreset);
+
+    let sourceId = null;
+    let sourceType = null;
+    if (useVisuals) {
+      sourceId = state.activeVisualsPreset.source_id;
+      sourceType = state.activeVisualsPreset.source_type;
+    } else if (state.fillerPlaylistId) {
+      sourceId = state.fillerPlaylistId;
+      sourceType = 'playlist';
+    }
+
+    // Guard: if already playing this exact source, don't restart
+    if (state.isFillerMode && state._activeFillerPlaylistId === sourceId) {
+      return;
+    }
+
+    if (!sourceId) {
       state.isFillerMode = false;
       state.currentTrack = null;
       showState('idle');
       return;
     }
+
     if (!state.playerReady) {
       ensurePlayingViewActive();
       state.pendingPlayAfterReady = startFiller;
       return;
     }
+
     state.isFillerMode = true;
     state.currentTrack = null;
-    $('tv-filler-badge').style.display = 'flex';
+    const badge = $('tv-filler-badge');
+    if (badge) badge.style.display = 'flex';
     ensurePlayingViewActive();
-    state.player.loadPlaylist({
-      list: state.fillerPlaylistId,
-      listType: 'playlist',
-      index: 0
-    });
+
+    if (sourceType === 'playlist') {
+      state.player.loadPlaylist({
+        list: sourceId,
+        listType: 'playlist',
+        index: 0
+      });
+    } else {
+      // Single video → load and loop on end (handled in onPlayerStateChange)
+      state.player.loadVideoById({ videoId: sourceId });
+    }
+
+    // Apply mute state on every fresh load
+    if (state.tvMuted && state.player) state.player.mute();
+    else if (state.player) state.player.unMute();
+
+    state._activeFillerPlaylistId = sourceId;
   }
 
   async function onTrackEnded() {
@@ -562,6 +674,37 @@
         <span class="tv-chart-value">${u[valueKey]}</span>
       </div>`;
     }).join('');
+  }
+
+  function renderDjProfileCard() {
+    const section = $('tv-dj-profile-section');
+    if (!section) return;
+
+    const isLive = state.sessionMode === 'live-dj';
+    const profile = state.activeDjProfile;
+
+    if (!isLive || !profile) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+
+    const nameEl = $('tv-dj-profile-name');
+    const logoEl = $('tv-dj-profile-logo');
+
+    if (nameEl) nameEl.textContent = profile.name || 'DJ';
+
+    if (logoEl) {
+      if (profile.logo_filename) {
+        logoEl.onload = () => logoEl.classList.add('is-loaded');
+        logoEl.onerror = () => logoEl.classList.remove('is-loaded');
+        logoEl.src = `/api/dj-profiles/uploads/${encodeURIComponent(profile.logo_filename)}`;
+      } else {
+        logoEl.classList.remove('is-loaded');
+        logoEl.src = '';
+      }
+    }
   }
 
   // --- Init ---

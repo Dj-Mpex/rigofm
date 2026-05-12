@@ -61,10 +61,16 @@ function broadcastConfigChange() {
   ioInstance.emit('config:changed');
 }
 
+// Broadcast pending track update to ALL connected clients (DJ approval flow)
+function broadcastPendingUpdate() {
+  if (!ioInstance) return;
+  ioInstance.emit('pending:updated');
+}
+
 // Helper: get session code by session id
 function getSessionCodeById(sessionId) {
   const row = db.prepare('SELECT code FROM sessions WHERE id = ?').get(sessionId);
   return row ? row.code : null;
 }
 
-module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, getSessionCodeById };
+module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, getSessionCodeById };

@@ -44,7 +44,7 @@ db.exec(`
     duration INTEGER,
     added_by_guest_id TEXT NOT NULL,
     added_by_name TEXT NOT NULL,
-    status TEXT DEFAULT 'queued',
+    status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','playing','played','pending','rejected')),
     played_at INTEGER,
     created_at INTEGER NOT NULL,
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
@@ -66,6 +66,30 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_votes_track ON votes(track_id);
   CREATE INDEX IF NOT EXISTS idx_votes_guest ON votes(guest_id);
 `);
+
+// Migration: add mode column to sessions if not exists
+try {
+  const cols = db.prepare("PRAGMA table_info(sessions)").all();
+  const hasMode = cols.some(c => c.name === 'mode');
+  if (!hasMode) {
+    db.prepare("ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'auto'").run();
+    console.log('   → migrated: sessions.mode column added');
+  }
+} catch (e) { console.error('Migration sessions.mode failed:', e.message); }
+
+// Migration: add guest_message and dj_note columns to tracks if not exist
+try {
+  const cols = db.prepare("PRAGMA table_info(tracks)").all();
+  const colNames = cols.map(c => c.name);
+  if (!colNames.includes('guest_message')) {
+    db.prepare("ALTER TABLE tracks ADD COLUMN guest_message TEXT").run();
+    console.log('   → migrated: tracks.guest_message column added');
+  }
+  if (!colNames.includes('dj_note')) {
+    db.prepare("ALTER TABLE tracks ADD COLUMN dj_note TEXT").run();
+    console.log('   → migrated: tracks.dj_note column added');
+  }
+} catch (e) { console.error('Migration tracks columns failed:', e.message); }
 
 // Add manual_order column for admin drag&drop (idempotent)
 try {
@@ -128,6 +152,52 @@ try {
     console.log(`   → backfilled ${missing.length} guests with party emojis`);
   }
 } catch (e) { console.error('Emoji backfill failed:', e.message); }
+
+// DJ Profiles
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS dj_profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    logo_filename TEXT,
+    created_at INTEGER NOT NULL
+  )
+`).run();
+
+// Migration: add active_dj_profile_id to settings (default: none)
+try {
+  const exists = db.prepare("SELECT 1 FROM settings WHERE key = 'active_dj_profile_id'").get();
+  if (!exists) {
+    db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)").run('active_dj_profile_id', '', Date.now());
+    console.log('   → migrated: active_dj_profile_id setting added');
+  }
+} catch (e) { console.error('Migration active_dj_profile_id failed:', e.message); }
+
+// Visuals Presets
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS visuals_presets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`).run();
+
+// Migration: settings for visuals/source toggle in live mode
+try {
+  const keys = [
+    { key: 'active_visuals_preset_id', value: '' },
+    { key: 'live_tv_source', value: 'tracks' },
+    { key: 'live_tv_muted', value: 'false' }
+  ];
+  for (const k of keys) {
+    const exists = db.prepare("SELECT 1 FROM settings WHERE key = ?").get(k.key);
+    if (!exists) {
+      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)").run(k.key, k.value, Date.now());
+      console.log(`   → migrated: ${k.key} setting added`);
+    }
+  }
+} catch (e) { console.error('Migration visuals settings failed:', e.message); }
 
 console.log('📀 Database ready:', dbPath);
 
