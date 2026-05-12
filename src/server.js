@@ -27,9 +27,9 @@ const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
 
-// Trust reverse proxy (Cloudflare → NPM → app)
-// This makes req.ip return the real client IP, not 127.0.0.1
-app.set('trust proxy', true);
+// Trust exactly 1 hop (NPM Reverse Proxy in front of us). Setting to 'true' is too permissive
+// and breaks express-rate-limit's IP detection.
+app.set('trust proxy', 1);
 
 // app.use(helmet({ ... }));  // disabled - breaks YouTube iframe player
 
