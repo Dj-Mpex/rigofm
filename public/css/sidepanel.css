@@ -13,16 +13,24 @@ html, body, .sp-body {
   overflow: hidden;
 }
 
-/* Kill any pseudo-element backgrounds from tv.css */
-.sp-body::before,
-.sp-body::after,
+/* Kill any animated pseudo-element backgrounds inherited from tv.css */
+body::before,
+body::after,
 html::before,
 html::after,
-body::before,
-body::after {
+.sp-body::before,
+.sp-body::after {
   display: none !important;
   background: none !important;
+  background-image: none !important;
   animation: none !important;
+  content: none !important;
+}
+
+/* If tv.css applies a background to a top-level container, neutralize */
+#app, .tv-root, .tv-page {
+  background: transparent !important;
+  background-image: none !important;
 }
 
 .sp-main {
