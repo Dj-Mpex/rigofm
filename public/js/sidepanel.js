@@ -33,22 +33,32 @@
   }
 
   async function boot() {
+    await loadSession();
+    await refresh();
+    initSocket();
+  }
+
+  // Fetch active session without throwing — handles 404 (no session yet) gracefully.
+  // Called on boot and again on every socket connect so a session that starts after
+  // the page loads is picked up automatically.
+  async function loadSession() {
     try {
-      const data = await api('/api/sessions/active');
-      console.log('[sidepanel] boot session data:', data);
+      const res = await fetch('/api/sessions/active', {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+      });
+      console.log('[sidepanel] loadSession status:', res.status);
+      if (!res.ok) return; // 404 = no active session yet, silently wait
+      const data = await res.json();
+      console.log('[sidepanel] loadSession data:', data);
       const session = data.session;
       if (session) {
         state.sessionCode = session.code;
         renderSessionHeader(session);
-      } else {
-        console.warn('[sidepanel] no active session');
       }
     } catch (err) {
-      console.error('[sidepanel] boot error:', err);
+      console.error('[sidepanel] loadSession error:', err);
     }
-
-    await refresh();
-    initSocket();
   }
 
   function renderSessionHeader(session) {
@@ -188,8 +198,9 @@
   function initSocket() {
     state.socket = io({ transports: ['websocket', 'polling'] });
 
-    state.socket.on('connect', () => {
+    state.socket.on('connect', async () => {
       console.log('[sidepanel] connected');
+      await loadSession();
       if (state.sessionCode) {
         state.socket.emit('session:join', { sessionCode: state.sessionCode, role: 'tv' });
       }
@@ -198,10 +209,7 @@
     state.socket.on('queue:updated', refresh);
     state.socket.on('config:changed', async () => {
       refresh();
-      try {
-        const { session } = await api('/api/sessions/active');
-        if (session) renderSessionHeader(session);
-      } catch {}
+      await loadSession();
     });
   }
 

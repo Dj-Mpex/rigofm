@@ -265,5 +265,5 @@ html, body, .sp-body {
   margin-top: 0;
 }
 .sp-main .sp-join-footer {
-  margin-top: auto;
+  margin-top: auto !important;
 }
