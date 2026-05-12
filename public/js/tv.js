@@ -63,7 +63,9 @@
         api('/api/settings/filler')
       ]);
       state.session = session;
+      state.sessionId = session.id;
       state.fillerPlaylistId = playlistId;
+      initChartsOverlay();
 
       renderSession();
       initSocket();
@@ -85,23 +87,26 @@
     // User interaction grants permission for audio autoplay
     showState('playing');
     await refreshQueue();
+    initChartsOverlay();
   }
 
   function renderSession() {
     if (!state.session) return;
     const joinUrl = `${window.location.origin}/join/${state.session.code}`;
+    const urlDisplay = joinUrl.replace(/^https?:\/\//, '');
+    const qrSrc = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
 
-    // Idle view fields
-    $('tv-session-name').textContent = state.session.name;
-    $('tv-session-code').textContent = state.session.code;
-    $('tv-join-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-    $('tv-qr').src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
+    // Set session name in ALL places it might appear
+    document.querySelectorAll('#tv-session-name').forEach(el => el.textContent = state.session.name);
 
-    // Playing view fields
-    $('tv-side-name').textContent = state.session.name;
-    $('tv-join-mini-qr').src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
-    $('tv-join-mini-url').textContent = joinUrl.replace(/^https?:\/\//, '');
-    $('tv-join-mini-code').textContent = state.session.code;
+    // Set code in ALL places it might appear (idle screen + join-card)
+    document.querySelectorAll('#tv-session-code, #tv-join-code').forEach(el => el.textContent = state.session.code);
+
+    // Set join URL in ALL places
+    document.querySelectorAll('#tv-join-url').forEach(el => el.textContent = urlDisplay);
+
+    // Set QR src in ALL <img> tags with id tv-qr
+    document.querySelectorAll('#tv-qr').forEach(img => img.src = qrSrc);
   }
 
   // --- Socket ---
@@ -359,58 +364,56 @@
 
   // --- Side panel render ---
   function renderSidePanel() {
+    if (!state.session) return;
     const playing = state.queue.find(t => t.status === 'playing');
-    const queued = state.queue.filter(t => t.status === 'queued');
+    const upcoming = state.queue.filter(t => t.status === 'queued');
 
-    // Now playing card
+    const sn = $('tv-session-name'); if (sn) sn.textContent = state.session.name || 'Rigo Party';
+
+    const av = $('tv-now-avatar');
+    const nm = $('tv-now-name');
+    const tk = $('tv-now-track');
     if (playing) {
-      $('tv-now').style.display = 'block';
-      $('tv-now-name').textContent = playing.added_by_name;
-      $('tv-now-title').textContent = `${playing.title}`;
-      const av = $('tv-now-avatar');
-      if (playing.added_by_emoji) {
-        av.textContent = playing.added_by_emoji;
-        av.style.background = 'transparent';
-        av.style.fontSize = '1.6rem';
-      } else {
-        av.textContent = initials(playing.added_by_name);
-        av.style.background = avatarBg(playing.added_by_name);
-        av.style.color = '#0A0A0A';
-        av.style.fontSize = '';
-      }
+      if (av) av.textContent = playing.added_by_emoji || '🎵';
+      if (nm) nm.textContent = playing.added_by_name || '—';
+      if (tk) tk.textContent = playing.title || '';
     } else {
-      $('tv-now').style.display = 'none';
+      if (av) av.textContent = '🎶';
+      if (nm) nm.textContent = 'Filler';
+      if (tk) tk.textContent = state.isFillerMode ? 'Lo-Fi-Playlist läuft' : 'Warte auf die Party…';
     }
 
-    // Queue
-    $('tv-queue-count').textContent = queued.length;
-    const list = $('tv-queue');
-    if (queued.length === 0) {
-      list.innerHTML = '';
-      $('tv-queue-empty').style.display = 'block';
+    const qc = $('tv-queue-count'); if (qc) qc.textContent = upcoming.length;
+    const ql = $('tv-queue-list');
+    const qe = $('tv-queue-empty');
+    if (!upcoming.length) {
+      if (ql) ql.innerHTML = '';
+      if (qe) qe.style.display = 'block';
     } else {
-      $('tv-queue-empty').style.display = 'none';
-      list.innerHTML = '';
-      queued.forEach((t, idx) => {
-        const scoreClass = t.score > 0 ? '' : (t.score < 0 ? 'negative' : 'zero');
-        const scoreDisplay = t.score > 0 ? `+${t.score}` : t.score;
-        const el = document.createElement('div');
-        el.className = 'tv-track';
-        el.innerHTML = `
-          <div class="tv-track-rank">${idx + 1}</div>
-          <div class="tv-track-body">
-            <div class="tv-track-title">${escapeHtml(t.title)}</div>
-            <div class="tv-track-meta">
-              ${t.added_by_emoji
-                ? `<span class="avatar" style="background:transparent;font-size:0.85rem;">${t.added_by_emoji}</span>`
-                : `<span class="avatar" style="background:${avatarBg(t.added_by_name)};color:#0A0A0A;">${escapeHtml(initials(t.added_by_name))}</span>`}
-              <span>${escapeHtml(t.added_by_name)}</span>
+      if (qe) qe.style.display = 'none';
+      if (ql) {
+        ql.innerHTML = upcoming.slice(0, 8).map((t, i) => {
+          const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+          const sign = t.score > 0 ? '+' : '';
+          return `<div class="tv-queue-classic-item">
+            <span class="tv-queue-classic-pos">${i + 1}</span>
+            <div class="tv-queue-classic-main">
+              <div class="tv-queue-classic-title">${escapeHtml(t.title)}</div>
+              <div class="tv-queue-classic-by">${emoji}${escapeHtml(t.added_by_name || '?')}</div>
             </div>
-          </div>
-          <div class="tv-track-score ${scoreClass}">${scoreDisplay}</div>
-        `;
-        list.appendChild(el);
-      });
+            <span class="tv-queue-classic-score">${sign}${t.score || 0}</span>
+          </div>`;
+        }).join('');
+      }
+    }
+
+    if (state.session.code) {
+      const joinUrl = `${window.location.origin}/join/${state.session.code}`;
+      const urlDisplay = joinUrl.replace(/^https?:\/\//, '');
+      const qrSrc = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
+      document.querySelectorAll('#tv-qr').forEach(img => img.src = qrSrc);
+      document.querySelectorAll('#tv-join-url').forEach(el => el.textContent = urlDisplay);
+      document.querySelectorAll('#tv-join-code').forEach(el => el.textContent = state.session.code);
     }
   }
 
@@ -481,6 +484,84 @@
     setTimeout(async () => {
       await fadeVolume(0, state.lastUserVolume, 1200);
     }, 600);
+  }
+
+  // === Party Charts Overlay ===
+  function initChartsOverlay() {
+    console.log('[Charts] init called, sessionId:', state.sessionId);
+    if (!state.sessionId) {
+      console.log('[Charts] no session, retry 1s');
+      setTimeout(initChartsOverlay, 1000);
+      return;
+    }
+    console.log('[Charts] scheduled in 30s');
+    setTimeout(showChartsOverlay, 30 * 1000);
+  }
+
+  async function showChartsOverlay() {
+    console.log('[Charts] showing');
+    try {
+      const r = await api('/api/sessions/charts');
+      console.log('[Charts] data:', r);
+      if (r && r.charts) {
+        renderChartsOverlay(r.charts);
+        const overlay = $('tv-charts-overlay');
+        if (overlay) {
+          overlay.classList.add('is-visible');
+          setTimeout(() => {
+            overlay.classList.remove('is-visible');
+            setTimeout(showChartsOverlay, 30 * 1000);
+          }, 10 * 1000);
+          return;
+        }
+      }
+      setTimeout(showChartsOverlay, 30 * 1000);
+    } catch (err) {
+      console.error('[Charts] error:', err);
+      setTimeout(showChartsOverlay, 30 * 1000);
+    }
+  }
+
+  function renderChartsOverlay(charts) {
+    renderChartTrackList('tv-charts-tracks', (charts.top_tracks || []).slice(0, 5));
+    renderChartUserList('tv-charts-wishers', (charts.top_wishers || []).slice(0, 3), 'track_count');
+    renderChartUserList('tv-charts-voters', (charts.top_voters || []).slice(0, 3), 'vote_count');
+  }
+
+  function renderChartTrackList(elId, tracks) {
+    const c = $(elId); if (!c) return;
+    if (!tracks.length) { c.innerHTML = '<div style="color:var(--color-text-muted);padding:8px;">Noch keine Tracks</div>'; return; }
+    c.innerHTML = tracks.map((t, i) => {
+      const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const cls = i === 0 ? 'tv-chart-item tv-chart-item--first' : 'tv-chart-item';
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      const sign = t.score > 0 ? '+' : '';
+      return `<div class="${cls}">
+        <span class="tv-chart-rank">${rank}</span>
+        <div class="tv-chart-main">
+          <div class="tv-chart-title">${escapeHtml(t.title)}</div>
+          <div class="tv-chart-sub">${emoji}${escapeHtml(t.added_by_name || '?')}</div>
+        </div>
+        <span class="tv-chart-value">${sign}${t.score}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderChartUserList(elId, users, valueKey) {
+    const c = $(elId); if (!c) return;
+    if (!users.length) { c.innerHTML = '<div style="color:var(--color-text-muted);padding:8px;">Noch keine Daten</div>'; return; }
+    c.innerHTML = users.map((u, i) => {
+      const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      const cls = i === 0 ? 'tv-chart-item tv-chart-item--first' : 'tv-chart-item';
+      const emoji = u.emoji ? u.emoji + ' ' : '';
+      return `<div class="${cls}">
+        <span class="tv-chart-rank">${rank}</span>
+        <div class="tv-chart-main">
+          <div class="tv-chart-title">${emoji}${escapeHtml(u.name || '?')}</div>
+        </div>
+        <span class="tv-chart-value">${u[valueKey]}</span>
+      </div>`;
+    }).join('');
   }
 
   // --- Init ---

@@ -1,15 +1,137 @@
-/* ============================================
-   TV View — Fullscreen Display
-   Optimized for 1080p / 4K monitors
-   ============================================ */
+/* ============================================================
+   RIGO FM TV — Underground Stage
+   ============================================================ */
+
+:root {
+  /* Brand colors */
+  --color-primary: #FF6B1A;
+  --color-primary-glow: #FF8F4D;
+  --color-primary-deep: #C84F0E;
+  --color-primary-faint: rgba(255, 107, 26, 0.08);
+
+  /* Surface */
+  --color-bg: #050505;
+  --color-bg-raised: rgba(255, 255, 255, 0.025);
+  --color-bg-elevated: rgba(255, 255, 255, 0.045);
+  --color-bg-glow-warm: #1a0a04;
+
+  /* Borders & glass */
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-warm: rgba(255, 107, 26, 0.18);
+  --color-border-warm-strong: rgba(255, 107, 26, 0.4);
+
+  /* Text */
+  --color-text: #F5F2EE;
+  --color-text-muted: rgba(245, 242, 238, 0.55);
+  --color-text-faint: rgba(245, 242, 238, 0.32);
+
+  /* States */
+  --color-success: #4ADE80;
+  --color-warning: #FBB040;
+
+  /* Typography */
+  --font-display: 'Anton', 'Bebas Neue', sans-serif;
+  --font-body: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* Type scale — sized for 55"+ TVs viewed from couch */
+  --font-size-xs: 0.875rem;       /* 14px */
+  --font-size-sm: 1rem;           /* 16px */
+  --font-size-base: 1.125rem;     /* 18px */
+  --font-size-lg: 1.375rem;       /* 22px */
+  --font-size-xl: 1.75rem;        /* 28px */
+  --font-size-2xl: 2.25rem;       /* 36px */
+  --font-size-3xl: 3rem;          /* 48px */
+  --font-size-4xl: 4.5rem;        /* 72px */
+  --font-size-display: 6rem;      /* 96px — for huge things */
+
+  /* Spacing — generous for big screens */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* Shadows & glows */
+  --glow-warm-soft: 0 0 40px rgba(255, 107, 26, 0.15);
+  --glow-warm-medium: 0 0 80px rgba(255, 107, 26, 0.25);
+  --glow-warm-strong: 0 0 120px rgba(255, 107, 26, 0.35);
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.6);
+  --shadow-elevated: 0 24px 64px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 html, body {
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
   overflow: hidden;
-  cursor: none; /* hide mouse cursor on TV */
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  font-feature-settings: 'cv11', 'ss03';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-body { background: #000; }
+
+/* Atmospheric background: deep black with warm spotlight glow from bottom-center */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 110%, var(--color-bg-glow-warm) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(255, 107, 26, 0.04) 0%, transparent 50%),
+    var(--color-bg);
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Subtle noise texture overlay — analog warmth */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.85 0 0 0 0 0.7 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Slow breathing background atmosphere */
+@keyframes stageBreathe {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.92; }
+}
+body::before {
+  animation: stageBreathe 8s ease-in-out infinite;
+}
+
+/* Display text utility (for big titles) */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
 
 #tv-app, .tv-state { width: 100vw; height: 100vh; }
 
@@ -410,3 +532,311 @@ body { background: #000; }
   color: var(--color-text-muted);
   margin-top: var(--space-2);
 }
+
+/* === Charts Overlay === */
+.tv-charts-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10,10,10,0.96) 0%, rgba(20,15,10,0.99) 100%);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  padding: var(--space-6) var(--space-5);
+  overflow: hidden;
+}
+.tv-charts-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tv-charts-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.tv-charts-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255,107,26,0.15);
+}
+.tv-charts-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 0 12px rgba(255,107,26,0.6));
+}
+.tv-charts-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, #FF6B1A 0%, #FF8F4D 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.tv-charts-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.tv-charts-subtitle {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-2) 0;
+  font-weight: 600;
+}
+.tv-charts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tv-chart-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-md);
+  transition: all 200ms ease;
+}
+.tv-chart-item--first {
+  background: linear-gradient(90deg, rgba(255,107,26,0.18) 0%, rgba(255,107,26,0.04) 100%);
+  border-color: rgba(255,107,26,0.5);
+  box-shadow: 0 0 20px rgba(255,107,26,0.25), inset 0 0 12px rgba(255,107,26,0.08);
+  animation: chartsGlow 2.4s ease-in-out infinite;
+}
+@keyframes chartsGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255,107,26,0.25), inset 0 0 12px rgba(255,107,26,0.08); }
+  50%       { box-shadow: 0 0 32px rgba(255,107,26,0.45), inset 0 0 18px rgba(255,107,26,0.12); }
+}
+.tv-chart-rank {
+  font-size: 1.3rem;
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.tv-chart-item--first .tv-chart-rank {
+  filter: drop-shadow(0 0 8px rgba(255,107,26,0.8));
+}
+.tv-chart-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tv-chart-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-chart-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tv-chart-value {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--color-primary);
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tv-chart-item--first .tv-chart-value {
+  font-size: 1.25rem;
+  text-shadow: 0 0 12px rgba(255,107,26,0.7);
+}
+.tv-charts-list--compact .tv-chart-item {
+  padding: 8px 12px;
+}
+.tv-charts-list--compact .tv-chart-title {
+  font-size: var(--font-size-sm);
+}
+
+/* === Classic Side Panel — clean, restrained, refined === */
+.tv-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: var(--space-5);
+}
+.tv-brand .rigo-logo--sm {
+  width: 180px !important;
+  height: auto;
+  filter: drop-shadow(0 0 16px rgba(255,107,26,0.4));
+  flex-shrink: 0;
+}
+.tv-brand-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.tv-brand-label {
+  font-size: 0.7rem; letter-spacing: 0.18em; color: var(--color-text-faint);
+  text-transform: uppercase; font-weight: 600;
+}
+.tv-brand-title {
+  font-size: 1.4rem; font-weight: 700; color: var(--color-text);
+  margin: 2px 0 0 0; line-height: 1;
+}
+
+.tv-filler-badge-classic {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px;
+  background: rgba(255,107,26,0.08);
+  border: 1px solid rgba(255,107,26,0.3);
+  border-radius: 99px;
+  color: var(--color-primary);
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  align-self: flex-start;
+  margin-bottom: var(--space-4);
+}
+.tv-filler-badge-classic .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--color-primary);
+  box-shadow: 0 0 6px var(--color-primary);
+  animation: classicPulse 1.4s ease-in-out infinite;
+}
+@keyframes classicPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.tv-now-classic {
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,107,26,0.25);
+  border-radius: 14px;
+  margin-bottom: var(--space-4);
+  box-shadow: 0 0 24px rgba(255,107,26,0.06);
+}
+.tv-now-classic-label {
+  font-size: 0.7rem; letter-spacing: 0.14em; color: var(--color-primary);
+  text-transform: uppercase; font-weight: 600;
+  margin-bottom: 10px;
+}
+.tv-now-classic-row {
+  display: flex; align-items: center; gap: 12px;
+}
+.tv-now-avatar-classic {
+  font-size: 1.8rem;
+  filter: drop-shadow(0 0 12px rgba(255,107,26,0.4));
+}
+.tv-now-name-classic {
+  font-size: 1.6rem; font-weight: 700; color: var(--color-text); line-height: 1;
+}
+.tv-now-track-classic {
+  font-size: 0.95rem; color: var(--color-text-muted);
+  margin-top: 8px; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tv-up-next-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: var(--space-3);
+}
+.tv-up-next-label {
+  font-size: 0.7rem; letter-spacing: 0.18em; color: var(--color-text-muted);
+  text-transform: uppercase; font-weight: 700;
+}
+.tv-up-next-count {
+  margin-left: auto;
+  min-width: 22px; height: 22px; padding: 0 7px;
+  display: inline-grid; place-items: center;
+  background: var(--color-primary); color: var(--color-bg);
+  border-radius: 99px; font-size: 0.75rem; font-weight: 700;
+}
+
+.tv-queue-list-classic {
+  display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto; flex: 1; min-height: 0;
+}
+.tv-queue-list-classic::-webkit-scrollbar { width: 4px; }
+.tv-queue-list-classic::-webkit-scrollbar-thumb { background: rgba(255,107,26,0.2); border-radius: 4px; }
+.tv-queue-classic-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  transition: background 200ms ease;
+}
+.tv-queue-classic-item:hover {
+  background: rgba(255,255,255,0.04);
+}
+.tv-queue-classic-pos {
+  font-size: 0.9rem; color: var(--color-text-faint);
+  min-width: 18px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.tv-queue-classic-main { flex: 1; min-width: 0; }
+.tv-queue-classic-title {
+  font-size: 0.95rem; font-weight: 600; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-queue-classic-by {
+  font-size: 0.75rem; color: var(--color-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tv-queue-classic-score {
+  font-size: 0.95rem; font-weight: 700; color: var(--color-primary);
+  font-variant-numeric: tabular-nums; min-width: 32px; text-align: right;
+}
+.tv-queue-empty-classic {
+  color: var(--color-text-faint); font-style: italic;
+  font-size: 0.85rem; padding: var(--space-3) 0; text-align: center;
+}
+
+.tv-join-classic {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,107,26,0.2);
+  border-radius: 14px;
+  margin-top: var(--space-4);
+}
+.tv-qr-classic {
+  width: 110px !important;
+  height: 110px !important;
+  background: #fff !important;
+  padding: 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: block !important;
+  object-fit: contain;
+  box-shadow: 0 0 20px rgba(255,107,26,0.15);
+}
+.tv-join-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tv-join-classic-label {
+  font-size: 0.7rem; letter-spacing: 0.14em; color: var(--color-primary);
+  text-transform: uppercase; font-weight: 700;
+}
+.tv-join-classic-url {
+  font-size: 0.78rem; color: var(--color-text);
+  word-break: break-all; line-height: 1.3;
+  font-family: var(--font-mono, monospace);
+}
+.tv-join-classic-codelabel {
+  font-size: 0.7rem; color: var(--color-text-faint);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-right: 6px;
+}
+.tv-join-classic-code {
+  font-size: 1.1rem; font-weight: 700; color: var(--color-primary);
+  font-family: var(--font-mono, monospace); letter-spacing: 0.1em;
+}
+

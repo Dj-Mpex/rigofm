@@ -7,7 +7,7 @@
   <title>Rigo FM — TV</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Grotesk:wght@500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/tv.css">
 </head>
@@ -73,43 +73,70 @@
 
         <!-- Side panel -->
         <aside class="tv-side">
-          <header class="tv-side-header">
+
+          <div class="tv-brand">
             <img src="/img/rigo-logo.png" alt="Rigo" class="rigo-logo rigo-logo--sm">
-            <div class="tv-session-info">
-              <p class="tv-session-label">Session</p>
-              <p id="tv-side-name" class="tv-session-value">—</p>
+            <div class="tv-brand-text">
+              <span class="tv-brand-label">SESSION</span>
+              <h2 id="tv-session-name" class="tv-brand-title">Rigo Party</h2>
             </div>
-          </header>
-
-          <!-- Now Playing in sidebar -->
-          <div id="tv-now" class="tv-now" style="display:none;">
-            <p class="tv-now-label">Now playing · gewünscht von</p>
-            <div class="tv-now-by">
-              <span id="tv-now-avatar" class="avatar avatar-md">?</span>
-              <span id="tv-now-name" class="tv-now-name">—</span>
-            </div>
-            <p id="tv-now-title" class="tv-now-title">—</p>
           </div>
 
-          <!-- Queue -->
-          <div class="tv-queue-block">
-            <div class="tv-queue-header">
-              <h3>Up next</h3>
-              <span id="tv-queue-count" class="badge">0</span>
-            </div>
-            <div id="tv-queue" class="tv-queue"></div>
-            <p id="tv-queue-empty" class="tv-empty" style="display:none;">Queue ist leer — Filler läuft.</p>
+          <div id="tv-filler-badge" class="tv-filler-badge-classic" style="display:none;">
+            <span class="dot"></span> IDLE MODE · FILLER
           </div>
 
-          <!-- Join card (mini, always visible) -->
-          <footer class="tv-join-mini">
-            <img id="tv-join-mini-qr" alt="QR" class="tv-join-mini-qr">
-            <div class="tv-join-mini-text">
-              <p class="tv-join-mini-eyebrow">Join:</p>
-              <p id="tv-join-mini-url" class="tv-join-mini-url font-mono">--</p>
-              <p class="tv-join-mini-code">Code <span id="tv-join-mini-code">--</span></p>
+          <div id="tv-now-card" class="tv-now-classic">
+            <div class="tv-now-classic-label">NOW PLAYING · GEWÜNSCHT VON</div>
+            <div class="tv-now-classic-row">
+              <span id="tv-now-avatar" class="tv-now-avatar-classic"></span>
+              <span id="tv-now-name" class="tv-now-name-classic">—</span>
             </div>
-          </footer>
+            <div id="tv-now-track" class="tv-now-track-classic">Warte auf die Party…</div>
+          </div>
+
+          <div class="tv-up-next-row">
+            <span class="tv-up-next-label">UP NEXT</span>
+            <span id="tv-queue-count" class="tv-up-next-count">0</span>
+          </div>
+
+          <div id="tv-queue-list" class="tv-queue-list-classic"></div>
+          <p id="tv-queue-empty" class="tv-queue-empty-classic">Queue ist leer — Filler läuft.</p>
+
+          <div class="tv-join-classic">
+            <img id="tv-qr" class="tv-qr-classic" alt="QR">
+            <div class="tv-join-text">
+              <span class="tv-join-classic-label">JOIN:</span>
+              <span id="tv-join-url" class="tv-join-classic-url">—</span>
+              <div>
+                <span class="tv-join-classic-codelabel">Code</span>
+                <span id="tv-join-code" class="tv-join-classic-code">——————</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts overlay -->
+          <div id="tv-charts-overlay" class="tv-charts-overlay">
+            <div class="tv-charts-inner">
+              <div class="tv-charts-header">
+                <span class="tv-charts-icon">🏆</span>
+                <span class="tv-charts-title">Party-Charts</span>
+              </div>
+              <div class="tv-charts-section">
+                <h4 class="tv-charts-subtitle">Top 5 Tracks</h4>
+                <div id="tv-charts-tracks" class="tv-charts-list"></div>
+              </div>
+              <div class="tv-charts-section">
+                <h4 class="tv-charts-subtitle">Top Wisher 🎤</h4>
+                <div id="tv-charts-wishers" class="tv-charts-list tv-charts-list--compact"></div>
+              </div>
+              <div class="tv-charts-section">
+                <h4 class="tv-charts-subtitle">Top Voter 👍</h4>
+                <div id="tv-charts-voters" class="tv-charts-list tv-charts-list--compact"></div>
+              </div>
+            </div>
+          </div>
+
         </aside>
       </div>
     </section>
