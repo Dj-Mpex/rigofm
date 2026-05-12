@@ -203,7 +203,8 @@ router.get('/charts', (req, res) => {
     const topTracks = db.prepare(`
       SELECT
         t.id, t.title, t.artist, t.thumbnail, t.youtube_id, t.status,
-        g.name AS added_by_name, g.emoji AS added_by_emoji,
+        COALESCE(g.name, t.added_by_name) AS added_by_name,
+        COALESCE(g.emoji, t.added_by_emoji) AS added_by_emoji,
         COALESCE(SUM(v.value), 0) AS score,
         COUNT(CASE WHEN v.value = 1 THEN 1 END) AS upvotes,
         COUNT(CASE WHEN v.value = -1 THEN 1 END) AS downvotes
@@ -292,6 +293,94 @@ router.put('/mode', (req, res) => {
   } catch (err) {
     console.error('Set mode error:', err);
     res.status(500).json({ error: 'Konnte Modus nicht setzen' });
+  }
+});
+
+// === List all sessions (archive) ===
+router.get('/archive', (req, res) => {
+  try {
+    const sessions = db.prepare(`
+      SELECT
+        s.id,
+        s.name,
+        s.code,
+        s.active,
+        s.created_at,
+        s.ended_at,
+        (SELECT COUNT(*) FROM tracks t WHERE t.session_id = s.id AND t.status IN ('played', 'queued', 'playing', 'pending')) AS track_count,
+        (SELECT COUNT(*) FROM guests g WHERE g.session_id = s.id) AS guest_count,
+        (
+          SELECT t.title FROM tracks t
+          WHERE t.session_id = s.id AND t.status = 'played'
+          ORDER BY (SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.track_id = t.id) DESC,
+                   t.played_at DESC
+          LIMIT 1
+        ) AS top_track_title,
+        (
+          SELECT t.artist FROM tracks t
+          WHERE t.session_id = s.id AND t.status = 'played'
+          ORDER BY (SELECT COALESCE(SUM(v.value), 0) FROM votes v WHERE v.track_id = t.id) DESC,
+                   t.played_at DESC
+          LIMIT 1
+        ) AS top_track_artist
+      FROM sessions s
+      ORDER BY s.active DESC, s.created_at DESC
+    `).all();
+    res.json({ sessions });
+  } catch (err) {
+    console.error('List sessions archive:', err);
+    res.status(500).json({ error: 'Konnte Sessions nicht laden' });
+  }
+});
+
+// === Reactivate a past session (only if no active one exists) ===
+router.post('/:id/reactivate', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = db.prepare("SELECT * FROM sessions WHERE id = ?").get(id);
+    if (!session) return res.status(404).json({ error: 'Session nicht gefunden' });
+
+    const active = db.prepare("SELECT id FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (active && active.id !== id) {
+      return res.status(409).json({ error: 'Es ist bereits eine Session aktiv. Beende sie zuerst.' });
+    }
+
+    db.prepare("UPDATE sessions SET active = 1, ended_at = NULL WHERE id = ?").run(id);
+
+    const sockets = req.app.locals.sockets;
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
+    if (sockets && sockets.broadcastQueue) {
+      const updatedSession = db.prepare("SELECT code FROM sessions WHERE id = ?").get(id);
+      if (updatedSession) sockets.broadcastQueue(updatedSession.code);
+    }
+
+    res.json({ success: true, session_id: id });
+  } catch (err) {
+    console.error('Reactivate session:', err);
+    res.status(500).json({ error: 'Konnte Session nicht reaktivieren' });
+  }
+});
+
+// === Delete a session and all related data (cascade) ===
+router.delete('/:id/archive', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = db.prepare("SELECT * FROM sessions WHERE id = ?").get(id);
+    if (!session) return res.status(404).json({ error: 'Session nicht gefunden' });
+    if (session.active === 1) {
+      return res.status(400).json({ error: 'Aktive Session kann nicht gelöscht werden. Beende sie zuerst.' });
+    }
+
+    // Cascade delete: votes → tracks → guests → session
+    db.prepare("DELETE FROM votes WHERE track_id IN (SELECT id FROM tracks WHERE session_id = ?)").run(id);
+    db.prepare("DELETE FROM tracks WHERE session_id = ?").run(id);
+    db.prepare("DELETE FROM guests WHERE session_id = ?").run(id);
+    db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete session:', err);
+    res.status(500).json({ error: 'Konnte Session nicht löschen' });
   }
 });
 

@@ -457,6 +457,12 @@
         listType: 'playlist',
         index: 0
       });
+      // Activate shuffle mode after playlist is loaded
+      try { state.player.setShuffle(true); } catch {}
+      // Kick off a random first track
+      setTimeout(() => {
+        try { state.player.setShuffle(true); state.player.nextVideo(); } catch {}
+      }, 800);
     } else {
       // Single video → load and loop on end (handled in onPlayerStateChange)
       state.player.loadVideoById({ videoId: sourceId });

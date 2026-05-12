@@ -67,10 +67,26 @@ function broadcastPendingUpdate() {
   ioInstance.emit('pending:updated');
 }
 
+// Broadcast track approved/rejected to all connected clients
+function broadcastTrackApproved(trackId, addedByGuestId) {
+  if (!ioInstance) return;
+  ioInstance.emit('track:approved', { trackId, guestId: addedByGuestId });
+}
+
+function broadcastTrackRejected(trackId, addedByGuestId) {
+  if (!ioInstance) return;
+  ioInstance.emit('track:rejected', { trackId, guestId: addedByGuestId });
+}
+
+function broadcastGuestKicked(guestId) {
+  if (!ioInstance) return;
+  ioInstance.emit('guest:kicked', { guestId });
+}
+
 // Helper: get session code by session id
 function getSessionCodeById(sessionId) {
   const row = db.prepare('SELECT code FROM sessions WHERE id = ?').get(sessionId);
   return row ? row.code : null;
 }
 
-module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, getSessionCodeById };
+module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, broadcastTrackApproved, broadcastTrackRejected, broadcastGuestKicked, getSessionCodeById };

@@ -38,7 +38,7 @@ function getTrackScore(trackId) {
 function buildQueue(sessionId, guestId = null) {
   const tracks = db.prepare(`
     SELECT t.*,
-      g.emoji as added_by_emoji,
+      COALESCE(g.emoji, t.added_by_emoji) as added_by_emoji,
       COALESCE((SELECT SUM(value) FROM votes WHERE track_id = t.id), 0) as score
     FROM tracks t
     LEFT JOIN guests g ON g.id = t.added_by_guest_id
@@ -181,6 +181,7 @@ router.post('/', (req, res) => {
     duration: duration || null,
     added_by_guest_id: guest.id,
     added_by_name: guest.name,
+    added_by_emoji: guest.emoji || null,
     status: initialStatus,
     guest_message: guestMessage,
     played_at: null,
@@ -189,9 +190,11 @@ router.post('/', (req, res) => {
 
   db.prepare(`
     INSERT INTO tracks (id, session_id, youtube_id, title, artist, thumbnail, duration,
-                        added_by_guest_id, added_by_name, status, guest_message, played_at, created_at)
+                        added_by_guest_id, added_by_name, added_by_emoji,
+                        status, guest_message, played_at, created_at)
     VALUES (@id, @session_id, @youtube_id, @title, @artist, @thumbnail, @duration,
-            @added_by_guest_id, @added_by_name, @status, @guest_message, @played_at, @created_at)
+            @added_by_guest_id, @added_by_name, @added_by_emoji,
+            @status, @guest_message, @played_at, @created_at)
   `).run(track);
 
   // Auto-vote: adder gives their own track an automatic upvote
@@ -350,7 +353,8 @@ router.get('/history', (req, res) => {
 
   const rows = db.prepare(`
     SELECT t.id, t.youtube_id, t.title, t.artist, t.thumbnail, t.duration, t.played_at,
-      g.name AS added_by_name, g.emoji AS added_by_emoji,
+      COALESCE(g.name, t.added_by_name) AS added_by_name,
+      COALESCE(g.emoji, t.added_by_emoji) AS added_by_emoji,
       COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.track_id = t.id), 0) AS score
     FROM tracks t
     LEFT JOIN guests g ON g.id = t.added_by_guest_id
@@ -396,8 +400,7 @@ router.get('/pending', (req, res) => {
     const rows = db.prepare(`
       SELECT
         t.*,
-        g.name AS added_by_name,
-        g.emoji AS added_by_emoji
+        COALESCE(g.emoji, t.added_by_emoji) AS added_by_emoji
       FROM tracks t
       LEFT JOIN guests g ON g.id = t.added_by_guest_id
       WHERE t.session_id = ? AND t.status = 'pending'
@@ -418,13 +421,15 @@ router.post('/:id/approve', (req, res) => {
     const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
     if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
 
-    const track = db.prepare("SELECT id, status FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
+    const track = db.prepare("SELECT id, status, added_by_guest_id FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
     if (!track) return res.status(404).json({ error: 'Track nicht gefunden' });
     if (track.status !== 'pending') return res.status(400).json({ error: 'Track ist nicht pending' });
 
     db.prepare("UPDATE tracks SET status = 'queued' WHERE id = ?").run(id);
 
-    req.app.locals.sockets.broadcastQueue(session.code);
+    const sockets = req.app.locals.sockets;
+    sockets.broadcastQueue(session.code);
+    if (sockets.broadcastTrackApproved) sockets.broadcastTrackApproved(track.id, track.added_by_guest_id);
     res.json({ success: true });
   } catch (err) {
     console.error('Approve error:', err);
@@ -440,14 +445,16 @@ router.post('/:id/reject', (req, res) => {
     const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
     if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
 
-    const track = db.prepare("SELECT id, status FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
+    const track = db.prepare("SELECT id, status, added_by_guest_id FROM tracks WHERE id = ? AND session_id = ?").get(id, session.id);
     if (!track) return res.status(404).json({ error: 'Track nicht gefunden' });
     if (track.status !== 'pending') return res.status(400).json({ error: 'Track ist nicht pending' });
 
     const note = typeof dj_note === 'string' ? dj_note.trim().slice(0, 200) : null;
     db.prepare("UPDATE tracks SET status = 'rejected', dj_note = ? WHERE id = ?").run(note, id);
 
-    req.app.locals.sockets.broadcastQueue(session.code);
+    const sockets = req.app.locals.sockets;
+    sockets.broadcastQueue(session.code);
+    if (sockets.broadcastTrackRejected) sockets.broadcastTrackRejected(track.id, track.added_by_guest_id);
     res.json({ success: true });
   } catch (err) {
     console.error('Reject error:', err);
@@ -472,6 +479,29 @@ router.post('/:id/mark-playing-manual', (req, res) => {
   } catch (err) {
     console.error('Mark playing manual error:', err);
     res.status(500).json({ error: 'Konnte nicht markieren' });
+  }
+});
+
+router.get('/history-public', (req, res) => {
+  try {
+    const session = db.prepare("SELECT * FROM sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1").get();
+    if (!session) return res.json({ history: [] });
+
+    const history = db.prepare(`
+      SELECT t.id, t.youtube_id, t.title, t.artist, t.thumbnail, t.added_by_name,
+        COALESCE(g.emoji, t.added_by_emoji) AS added_by_emoji, t.played_at,
+        COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.track_id = t.id), 0) AS score
+      FROM tracks t
+      LEFT JOIN guests g ON g.id = t.added_by_guest_id
+      WHERE t.session_id = ? AND t.status = 'played'
+      ORDER BY t.played_at DESC
+      LIMIT 50
+    `).all(session.id);
+
+    res.json({ history });
+  } catch (err) {
+    console.error('Public history:', err);
+    res.status(500).json({ error: 'Verlauf konnte nicht geladen werden' });
   }
 });
 

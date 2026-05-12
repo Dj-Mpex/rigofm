@@ -207,6 +207,76 @@ try {
   }
 } catch (e) { console.error('Migration tv_charts_overlay_enabled failed:', e.message); }
 
+// Migration: make tracks.added_by_guest_id nullable + add denormalized added_by_emoji column.
+// SQLite cannot ALTER column constraints, so we recreate the table.
+// Guard: if added_by_emoji column already exists the migration already ran.
+try {
+  const trackColNames = db.prepare("PRAGMA table_info(tracks)").all().map(c => c.name);
+  if (!trackColNames.includes('added_by_emoji')) {
+    // Collect which optional migration columns actually exist in the old table
+    const optionalCols = ['guest_message', 'dj_note', 'manual_order'];
+    const presentOptional = optionalCols.filter(c => trackColNames.includes(c));
+
+    db.pragma('foreign_keys = OFF');
+    try {
+      const migrate = db.transaction(() => {
+        db.exec(`
+          CREATE TABLE tracks_new (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            youtube_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT,
+            thumbnail TEXT,
+            duration INTEGER,
+            added_by_guest_id TEXT,
+            added_by_name TEXT NOT NULL,
+            added_by_emoji TEXT,
+            status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','playing','played','pending','rejected')),
+            played_at INTEGER,
+            created_at INTEGER NOT NULL,
+            guest_message TEXT,
+            dj_note TEXT,
+            manual_order INTEGER,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY (added_by_guest_id) REFERENCES guests(id) ON DELETE SET NULL
+          )
+        `);
+
+        // Build column list dynamically so missing optional cols get NULL
+        const coreCols = ['id', 'session_id', 'youtube_id', 'title', 'artist', 'thumbnail',
+                          'duration', 'added_by_guest_id', 'added_by_name',
+                          'status', 'played_at', 'created_at'];
+        const allDestCols = [...coreCols, 'added_by_emoji', ...optionalCols];
+        const allSrcExprs = [
+          ...coreCols.map(c => c),
+          'NULL', // added_by_emoji — will be backfilled below
+          ...optionalCols.map(c => presentOptional.includes(c) ? c : 'NULL')
+        ];
+        db.exec(`
+          INSERT INTO tracks_new (${allDestCols.join(', ')})
+          SELECT ${allSrcExprs.join(', ')} FROM tracks
+        `);
+
+        // Backfill emoji from guests for all tracks whose guest still exists
+        db.exec(`
+          UPDATE tracks_new
+          SET added_by_emoji = (SELECT emoji FROM guests WHERE id = tracks_new.added_by_guest_id)
+          WHERE added_by_guest_id IS NOT NULL
+        `);
+
+        db.exec('DROP TABLE tracks');
+        db.exec('ALTER TABLE tracks_new RENAME TO tracks');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_tracks_session_status ON tracks(session_id, status)');
+      });
+      migrate();
+      console.log('   → migrated: tracks recreated — added_by_guest_id nullable + ON DELETE SET NULL + added_by_emoji column');
+    } finally {
+      db.pragma('foreign_keys = ON');
+    }
+  }
+} catch (e) { console.error('Migration tracks nullable/emoji failed:', e.message); }
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;

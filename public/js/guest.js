@@ -232,6 +232,7 @@
       initSocket();
       bindUI();
       await refreshQueue();
+      loadGuestHistory();
     } catch (err) {
       console.error('Load session error:', err);
       $('error-msg').textContent = err.message === 'Session not found or ended'
@@ -311,13 +312,37 @@
       if (n === 3) toast('Verbindung wackelt …', 'error');
     });
 
-    state.socket.on('queue:updated', refreshQueue);
+    state.socket.on('queue:updated', () => { refreshQueue(); loadGuestHistory(); });
 
     state.socket.on('config:changed', async () => {
       try {
         const modeRes = await api('/api/sessions/mode');
         state.sessionMode = modeRes.mode || 'auto';
       } catch {}
+    });
+
+    state.socket.on('track:approved', (data) => {
+      if (!data || data.guestId !== state.guest?.id) return;
+      celebrateApproval();
+    });
+
+    state.socket.on('track:rejected', (data) => {
+      if (!data || data.guestId !== state.guest?.id) return;
+      // Quick vibration only, no confetti for rejection
+      if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    });
+
+    state.socket.on('guest:kicked', (data) => {
+      if (!data || data.guestId !== state.guest?.id) return;
+      // Clear identity
+      state.guest = null;
+      clearStored();
+      // Disconnect to stop reconnect attempts
+      state.socket.disconnect();
+      state.socket = null;
+      // Show kicked screen
+      $('error-msg').textContent = 'Du wurdest vom DJ aus der Party entfernt.';
+      showView('error');
     });
 
     // Refresh when tab becomes visible again (e.g. user switched away and back)
@@ -506,9 +531,29 @@
           <div class="g-result-title">${escapeHtml(r.title)}</div>
           <div class="g-result-sub">${escapeHtml(r.artist)} · ${formatDuration(r.duration)}</div>
         </div>
-        <button class="g-result-add" data-add="${r.youtube_id}" aria-label="Hinzufügen">+</button>
+        ${r.existing_track_id ? (
+          r.existing_status === 'played'
+            ? `<span class="search-already-played">✓ Bereits gespielt</span>`
+            : `<button class="search-vote-btn" data-vote-id="${escapeHtml(r.existing_track_id)}">👍 Voten (${r.existing_score >= 0 ? '+' : ''}${r.existing_score || 0})</button>`
+        ) : `<button class="g-result-add" data-add="${escapeHtml(r.youtube_id)}" aria-label="Hinzufügen">+</button>`}
       `;
-      el.querySelector('.g-result-add').addEventListener('click', () => onAddClick(r, el));
+      if (r.existing_track_id && r.existing_status !== 'played') {
+        el.querySelector('.search-vote-btn').addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const id = btn.getAttribute('data-vote-id');
+          if (!requireGuest({ type: 'vote', trackId: id, value: 1 })) return;
+          try {
+            await api(`/api/tracks/${id}/vote`, {
+              method: 'POST',
+              body: JSON.stringify({ guestId: state.guest.id, value: 1 })
+            });
+            btn.disabled = true;
+            btn.textContent = '✓ Gevotet';
+          } catch (err) { alert(err.message); }
+        });
+      } else if (!r.existing_track_id) {
+        el.querySelector('.g-result-add').addEventListener('click', () => onAddClick(r, el));
+      }
       list.appendChild(el);
     });
   }
@@ -744,6 +789,73 @@
       cleanup();
       callback();
     };
+  }
+
+  // --- Guest History ---
+  async function loadGuestHistory() {
+    try {
+      const r = await api('/api/tracks/history-public');
+      renderGuestHistory(r.history || []);
+    } catch (e) {
+      console.error('History:', e);
+    }
+  }
+
+  function renderGuestHistory(items) {
+    const c = document.getElementById('guest-history-list');
+    const badge = document.getElementById('guest-history-count');
+    if (badge) badge.textContent = items.length;
+    if (!c) return;
+
+    if (!items.length) {
+      c.innerHTML = '<p class="guest-history-empty">Noch nichts gespielt.</p>';
+      return;
+    }
+
+    c.innerHTML = items.map(t => {
+      const emoji = t.added_by_emoji ? t.added_by_emoji + ' ' : '';
+      const time = t.played_at ? new Date(t.played_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
+      return `
+        <div class="guest-history-row">
+          <img src="${escapeHtml(t.thumbnail || '')}" alt="" class="guest-history-thumb">
+          <div class="guest-history-info">
+            <div class="guest-history-title">${escapeHtml(t.title || '')}</div>
+            <div class="guest-history-sub">${escapeHtml(t.artist || '')} · ${emoji}${escapeHtml(t.added_by_name || '?')} · ${time}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // --- Approval Celebration ---
+  function celebrateApproval() {
+    // Vibration
+    if (navigator.vibrate) navigator.vibrate([80, 40, 80, 40, 200]);
+
+    // Confetti burst
+    spawnConfetti();
+  }
+
+  function spawnConfetti() {
+    const container = document.createElement('div');
+    container.className = 'rigo-confetti-container';
+    document.body.appendChild(container);
+
+    const colors = ['#FF6B1A', '#FBB040', '#4ADE80', '#60A5FA', '#F472B6', '#fff'];
+    const count = 60;
+
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'rigo-confetti-piece';
+      piece.style.left = (Math.random() * 100) + '%';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      piece.style.animationDuration = (1.8 + Math.random() * 1.2) + 's';
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      container.appendChild(piece);
+    }
+
+    setTimeout(() => container.remove(), 3500);
   }
 
   // --- Start ---

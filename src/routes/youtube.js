@@ -1,4 +1,5 @@
 const express = require('express');
+const db = require('../db/database');
 
 const router = express.Router();
 
@@ -69,6 +70,48 @@ router.get('/search', async (req, res) => {
       if (musicOnly && r.categoryId && r.categoryId !== '10') return false;
       return true;
     });
+
+    // Mark search results that already exist in current session (queued, playing or played)
+    try {
+      const session = db.prepare("SELECT * FROM sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1").get();
+      if (session && results && results.length > 0) {
+        const ytIds = results.map(r => r.youtube_id);
+        const placeholders = ytIds.map(() => '?').join(',');
+        const existing = db.prepare(`
+          SELECT t.id, t.youtube_id, t.status, t.played_at,
+            COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.track_id = t.id), 0) AS score
+          FROM tracks t
+          WHERE t.session_id = ? AND t.youtube_id IN (${placeholders})
+        `).all(session.id, ...ytIds);
+
+        // Get cooldown from settings
+        let cooldownMs = 0;
+        try {
+          const cd = db.prepare("SELECT value FROM settings WHERE key = 'track_cooldown_minutes'").get();
+          cooldownMs = (parseInt(cd?.value || '60', 10)) * 60 * 1000;
+        } catch {}
+        const now = Date.now();
+
+        for (const r of results) {
+          const match = existing.find(e => e.youtube_id === r.youtube_id);
+          if (!match) continue;
+
+          // If track is played AND cooldown has passed → no existing fields → normal add button
+          if (match.status === 'played') {
+            const playedAt = match.played_at || 0;
+            if (cooldownMs > 0 && now - playedAt >= cooldownMs) {
+              continue; // don't set existing_* — track stays in results as addable
+            }
+          }
+
+          r.existing_track_id = match.id;
+          r.existing_status = match.status;
+          r.existing_score = match.score;
+        }
+      }
+    } catch (e) {
+      console.warn('Search match-check failed:', e.message);
+    }
 
     res.json({ results });
   } catch (err) {

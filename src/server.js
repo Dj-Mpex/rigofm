@@ -20,6 +20,7 @@ const tracksRouter = require('./routes/tracks');
 const settingsRouter = require('./routes/settings');
 const djProfilesRouter = require('./routes/dj-profiles');
 const visualsRouter = require('./routes/visuals');
+const guestsRouter = require('./routes/guests');
 const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
@@ -91,6 +92,7 @@ app.use('/api/tracks', tracksRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/dj-profiles', djProfilesRouter);
 app.use('/api/visuals', visualsRouter);
+app.use('/api/guests', guestsRouter);
 
 // QR code generator
 app.get('/api/qr', async (req, res) => {

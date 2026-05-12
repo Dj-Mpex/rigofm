@@ -112,6 +112,7 @@
       console.warn('[charts] row not found at bind time');
     }
 
+    bindArchiveUI();
     await loadMode();
     bootLiveDjStateOnce();
   }
@@ -348,9 +349,25 @@
           <span><span class="stat-num">${g.track_count}</span> Tracks</span>
           <span><span class="stat-num">${g.vote_count}</span> Votes</span>
         </span>
+        <button class="guest-kick-btn" data-kick-id="${escapeHtml(g.id)}" data-kick-name="${escapeHtml(g.name)}" title="Gast rauswerfen">×</button>
       `;
+      item.querySelector('.guest-kick-btn').addEventListener('click', () => {
+        kickGuest(g.id, g.name);
+      });
       list.appendChild(item);
     });
+  }
+
+  async function kickGuest(id, name) {
+    if (!confirm(`${name} wirklich aus der Party entfernen?`)) return;
+    try {
+      await api(`/api/guests/${id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ adminPassword })
+      });
+    } catch (err) {
+      alert(`Fehler: ${err.message}`);
+    }
   }
 
   // --- Utils ---
@@ -814,9 +831,10 @@
 
   async function loadDjView() {
     try {
-      const [pendingRes, queueRes] = await Promise.all([
+      const [pendingRes, queueRes, guestsRes] = await Promise.all([
         api('/api/tracks/pending'),
-        api('/api/tracks/queue')
+        api('/api/tracks/queue'),
+        api(`/api/sessions/active/guests?adminPassword=${encodeURIComponent(adminPassword)}`).catch(() => ({ guests: [] }))
       ]);
       const allQueue = queueRes.queue || [];
       const playing = allQueue.find(t => t.status === 'playing');
@@ -827,11 +845,44 @@
       renderDjNowPlaying(playing);
       renderDjQueue(queued);
       renderDjPending(pendingRes.pending || []);
+      renderDjGuestsSidebar(guestsRes.guests || []);
       loadDjProfiles();
       loadVisuals();
     } catch (e) {
       console.error('Load DJ view:', e);
     }
+  }
+
+  function renderDjGuestsSidebar(guests) {
+    const sidebar = $('dj-guests-sidebar');
+    if (!sidebar) return;
+
+    const countEl = sidebar.querySelector('.dj-guests-sidebar-count');
+    if (countEl) countEl.textContent = guests.length;
+
+    const list = sidebar.querySelector('.dj-guests-sidebar-list');
+    if (!list) return;
+
+    if (guests.length === 0) {
+      list.innerHTML = '<p class="dj-empty-state">Noch keine Gäste</p>';
+      return;
+    }
+
+    list.innerHTML = '';
+    guests.forEach(g => {
+      const row = document.createElement('div');
+      row.className = 'dj-guest-row';
+      row.innerHTML = `
+        <span class="dj-guest-emoji">${g.emoji || '🎵'}</span>
+        <span class="dj-guest-name">${escapeHtml(g.name)}</span>
+        <span class="dj-guest-tracks">${g.track_count}</span>
+        <button class="dj-guest-kick-btn" title="Rauswerfen">×</button>
+      `;
+      row.querySelector('.dj-guest-kick-btn').addEventListener('click', () => {
+        kickGuest(g.id, g.name);
+      });
+      list.appendChild(row);
+    });
   }
 
   function startDjPolling() {
@@ -868,12 +919,20 @@
         </div>
         <div class="dj-now-action">
           <span class="dj-now-live-indicator">▶ LÄUFT</span>
+          <button class="dj-btn-skip" data-skip="${track.id}">⏭ Skip</button>
           <button class="dj-btn-played-small" data-played="${track.id}">Als gespielt markieren</button>
         </div>
       </div>
     `;
     c.querySelector('[data-played]')?.addEventListener('click', async (e) => {
       const id = e.target.getAttribute('data-played');
+      try {
+        await api(`/api/tracks/${id}/mark-played`, { method: 'POST', body: '{}' });
+        loadDjView();
+      } catch (err) { alert(err.message); }
+    });
+    c.querySelector('[data-skip]')?.addEventListener('click', async (e) => {
+      const id = e.target.getAttribute('data-skip');
       try {
         await api(`/api/tracks/${id}/mark-played`, { method: 'POST', body: '{}' });
         loadDjView();
@@ -1399,6 +1458,109 @@
       if (!btn) return;
       const enabled = btn.getAttribute('data-charts') === 'true';
       setChartsOverlay(enabled);
+    });
+  }
+
+  // === Sessions Archive ===
+  function bindArchiveUI() {
+    const toggle = document.getElementById('archive-toggle-btn');
+    const menu = document.getElementById('archive-menu');
+    const closeBtn = document.getElementById('archive-close-btn');
+
+    if (toggle) {
+      toggle.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const isOpen = menu.style.display === 'flex' || menu.style.display === 'block';
+        if (isOpen) {
+          menu.style.display = 'none';
+        } else {
+          menu.style.display = 'flex';
+          loadArchive();
+        }
+      });
+    }
+    if (closeBtn) closeBtn.addEventListener('click', () => { menu.style.display = 'none'; });
+
+    // Close on outside click
+    document.addEventListener('click', (ev) => {
+      if (menu && menu.style.display !== 'none' && !menu.contains(ev.target) && ev.target !== toggle) {
+        menu.style.display = 'none';
+      }
+    });
+  }
+
+  async function loadArchive() {
+    try {
+      const r = await api('/api/sessions/archive');
+      renderArchive(r.sessions || []);
+    } catch (err) {
+      console.error('Load archive:', err);
+    }
+  }
+
+  function renderArchive(sessions) {
+    const c = document.getElementById('archive-list');
+    if (!c) return;
+
+    if (!sessions.length) {
+      c.innerHTML = '<p class="archive-empty">Noch keine Sessions vorhanden.</p>';
+      return;
+    }
+
+    const hasActive = sessions.some(s => s.active === 1);
+
+    c.innerHTML = sessions.map(s => {
+      const date = new Date(s.created_at).toLocaleString('de-DE', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+      const liveBadge = s.active === 1 ? '<span class="archive-card-livebadge">● Live</span>' : '';
+      const topTrack = s.top_track_title
+        ? `<div class="archive-card-toptrack">🏆 ${escapeHtml(s.top_track_title)}${s.top_track_artist ? ' · ' + escapeHtml(s.top_track_artist) : ''}</div>`
+        : '';
+      const canReactivate = !hasActive && s.active !== 1;
+      const canDelete = s.active !== 1;
+
+      return `
+        <div class="archive-card ${s.active === 1 ? 'is-active' : ''}">
+          <div class="archive-card-header">
+            <span class="archive-card-name">${escapeHtml(s.name || '–')}</span>
+            ${liveBadge}
+          </div>
+          <div class="archive-card-meta">
+            <span class="archive-card-meta-item">📅 ${date}</span>
+            <span class="archive-card-meta-item">🎵 ${s.track_count || 0}</span>
+            <span class="archive-card-meta-item">👥 ${s.guest_count || 0}</span>
+          </div>
+          ${topTrack}
+          <div class="archive-card-actions">
+            <button class="archive-card-btn" data-reactivate="${escapeHtml(s.id)}" ${canReactivate ? '' : 'disabled'} title="${canReactivate ? '' : (hasActive ? 'Beende erst die aktive Session' : 'Bereits aktiv')}">↻ Reaktivieren</button>
+            <button class="archive-card-btn is-danger" data-delete="${escapeHtml(s.id)}" ${canDelete ? '' : 'disabled'} title="${canDelete ? '' : 'Aktive Session zuerst beenden'}">× Löschen</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    c.querySelectorAll('[data-reactivate]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-reactivate');
+        if (!confirm('Diese Session reaktivieren? Sie wird zur aktiven Session.')) return;
+        try {
+          await api(`/api/sessions/${encodeURIComponent(id)}/reactivate`, { method: 'POST', body: '{}' });
+          document.getElementById('archive-menu').style.display = 'none';
+          location.reload();
+        } catch (err) { alert(err.message); }
+      });
+    });
+
+    c.querySelectorAll('[data-delete]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-delete');
+        if (!confirm('Diese Session und alle ihre Daten endgültig löschen? Das kann nicht rückgängig gemacht werden.')) return;
+        try {
+          await api(`/api/sessions/${encodeURIComponent(id)}/archive`, { method: 'DELETE' });
+          loadArchive();
+        } catch (err) { alert(err.message); }
+      });
     });
   }
 })();

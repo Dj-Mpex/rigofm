@@ -35,6 +35,18 @@
             <button id="mode-btn-auto" class="admin-mode-btn is-active" data-mode="auto">Auto</button>
             <button id="mode-btn-live" class="admin-mode-btn" data-mode="live-dj">Live-DJ</button>
           </div>
+          <div class="archive-dropdown">
+            <button id="archive-toggle-btn" class="btn btn-ghost btn-sm" title="Sessions-Archiv">📁 Archiv</button>
+            <div id="archive-menu" class="archive-menu" style="display:none;">
+              <div class="archive-menu-header">
+                <span>Sessions-Archiv</span>
+                <button id="archive-close-btn" class="archive-close-btn" aria-label="Schließen">×</button>
+              </div>
+              <div id="archive-list" class="archive-list">
+                <p class="archive-empty">Lade…</p>
+              </div>
+            </div>
+          </div>
           <button id="logout-btn" class="btn btn-ghost btn-sm">Logout</button>
         </div>
       </header>
@@ -262,6 +274,16 @@
                   </div>
 
                 </div>
+              </details>
+
+              <!-- DJ Guests Sidebar -->
+              <details class="dj-guests-sidebar" id="dj-guests-sidebar" open>
+                <summary class="dj-visuals-summary">
+                  <span class="dj-visuals-summary-label">👥 Gäste</span>
+                  <span class="dj-guests-sidebar-count dj-count-badge">0</span>
+                  <span class="dj-visuals-summary-chevron">▾</span>
+                </summary>
+                <div class="dj-guests-sidebar-list"></div>
               </details>
 
             </div>
