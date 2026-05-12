@@ -55,9 +55,15 @@
     if (nameEl) nameEl.textContent = session.name || 'Party';
     if (codeEl) codeEl.textContent = session.code || '—';
 
-    const joinUrl = `${window.location.origin}/join/${session.code}`;
+    // Build join URL like TV does
+    const origin = window.location.origin;
+    const joinUrl = `${origin}/join/${session.code}`;
     if (urlEl) urlEl.textContent = joinUrl.replace(/^https?:\/\//, '');
-    if (qrEl) qrEl.src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
+
+    // QR via /api/qr?text=... like TV
+    if (qrEl && session.code) {
+      qrEl.src = `/api/qr?text=${encodeURIComponent(joinUrl)}`;
+    }
   }
 
   async function refresh() {
