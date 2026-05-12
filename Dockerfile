@@ -1,8 +1,9 @@
 # Multi-stage build for Rigo FM
 FROM node:20-alpine AS base
 
-# Install build tools for better-sqlite3 native compile
-RUN apk add --no-cache python3 make g++ sqlite
+# Install build tools for better-sqlite3 native compile + yt-dlp for YouTube search fallback
+RUN apk add --no-cache python3 py3-pip make g++ sqlite ffmpeg curl \
+    && pip3 install --break-system-packages --no-cache-dir yt-dlp
 
 WORKDIR /app
 

@@ -292,6 +292,22 @@ try {
   }
 } catch (e) { console.error('Migration tracks nullable/emoji failed:', e.message); }
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS youtube_cache (
+    cache_key TEXT PRIMARY KEY,
+    query TEXT NOT NULL,
+    results_json TEXT NOT NULL,
+    source TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )
+`).run();
+
+try {
+  const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+  const result = db.prepare("DELETE FROM youtube_cache WHERE created_at < ?").run(cutoff);
+  if (result.changes > 0) console.log(`   → cleaned ${result.changes} expired cache entries`);
+} catch (e) { console.error('Cache cleanup failed:', e.message); }
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;
