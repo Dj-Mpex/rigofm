@@ -187,7 +187,7 @@ html, body, .sp-body {
 }
 .sp-session-name {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
   color: #fff;
   letter-spacing: 0.01em;
@@ -198,27 +198,31 @@ html, body, .sp-body {
 .sp-join-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(10, 10, 10, 0.78);
+  gap: 14px;
+  padding: 14px;
+  background: rgba(10, 10, 10, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  box-sizing: border-box;
 }
 .sp-qr-image {
-  width: 86px;
-  height: 86px;
+  width: 92px !important;
+  height: 92px !important;
+  max-width: 92px !important;
+  max-height: 92px !important;
   background: #fff;
-  padding: 6px;
+  padding: 5px;
   border-radius: 8px;
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
 }
 .sp-join-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
 }
@@ -226,21 +230,23 @@ html, body, .sp-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 .sp-join-label {
-  font-size: 0.62rem;
+  font-size: 0.6rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.45);
 }
 .sp-join-value {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .sp-mono {
   font-family: 'JetBrains Mono', monospace;
