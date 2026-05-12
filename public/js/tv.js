@@ -21,7 +21,9 @@
     tvSource: 'tracks',
     tvMuted: false,
     activeVisualsPreset: null,
-    _activeFillerPlaylistId: null
+    _activeFillerPlaylistId: null,
+    chartsOverlayEnabled: true,
+    _chartsTimer: null
   };
 
   const $ = (id) => document.getElementById(id);
@@ -85,6 +87,7 @@
         state.activeVisualsPreset = vRes.preset || null;
         state.tvSource = vRes.tv_source || 'tracks';
         state.tvMuted = vRes.tv_muted === true;
+        state.chartsOverlayEnabled = vRes.charts_overlay !== false;
       } catch {}
       renderDjProfileCard();
       initChartsOverlay();
@@ -170,8 +173,19 @@
       state.tvSource = vRes.tv_source || 'tracks';
       state.tvMuted = vRes.tv_muted === true;
       const newVisualsId = state.activeVisualsPreset ? state.activeVisualsPreset.id : null;
+      const oldCharts = state.chartsOverlayEnabled;
+      state.chartsOverlayEnabled = vRes.charts_overlay !== false;
 
       renderDjProfileCard();
+
+      // Apply charts toggle immediately
+      if (oldCharts !== state.chartsOverlayEnabled) {
+        if (state.chartsOverlayEnabled) {
+          initChartsOverlay();
+        } else {
+          stopChartsOverlay();
+        }
+      }
 
       // Apply mute change immediately (no playback restart needed)
       if (oldMuted !== state.tvMuted && state.player && state.playerReady) {
@@ -430,7 +444,10 @@
     state.isFillerMode = true;
     state.currentTrack = null;
     const badge = $('tv-filler-badge');
-    if (badge) badge.style.display = 'flex';
+    if (badge) {
+      // In live-dj mode the filler badge should never show
+      badge.style.display = (state.sessionMode === 'live-dj') ? 'none' : 'flex';
+    }
     ensurePlayingViewActive();
 
     if (sourceType === 'playlist') {
@@ -477,6 +494,28 @@
   // --- Side panel render ---
   function renderSidePanel() {
     if (!state.session) return;
+
+    // LIVE-DJ MODE: hide Now-Playing card entirely unless a REAL guest track is playing/queued
+    if (state.sessionMode === 'live-dj') {
+      const nowSection = document.querySelector('.tv-now-section');
+      const hasRealTrack = state.queue && state.queue.some(t => t.status === 'playing' || t.status === 'queued');
+
+      if (!hasRealTrack) {
+        if (nowSection) nowSection.style.display = 'none';
+        // Also hide filler badge if present
+        const badge = $('tv-filler-badge');
+        if (badge) badge.style.display = 'none';
+        return;
+      } else {
+        if (nowSection) nowSection.style.display = '';
+        // Continue with normal render below for real track
+      }
+    } else {
+      // Auto mode: ensure now-section is visible (in case it was hidden by live mode earlier)
+      const nowSection = document.querySelector('.tv-now-section');
+      if (nowSection) nowSection.style.display = '';
+    }
+
     const playing = state.queue.find(t => t.status === 'playing');
     const upcoming = state.queue.filter(t => t.status === 'queued');
 
@@ -600,17 +639,33 @@
 
   // === Party Charts Overlay ===
   function initChartsOverlay() {
+    if (state.chartsOverlayEnabled === false) {
+      console.log('[Charts] disabled, skipping init');
+      return;
+    }
     console.log('[Charts] init called, sessionId:', state.sessionId);
     if (!state.sessionId) {
       console.log('[Charts] no session, retry 1s');
-      setTimeout(initChartsOverlay, 1000);
+      state._chartsTimer = setTimeout(initChartsOverlay, 1000);
       return;
     }
     console.log('[Charts] scheduled in 30s');
-    setTimeout(showChartsOverlay, 30 * 1000);
+    state._chartsTimer = setTimeout(showChartsOverlay, 30 * 1000);
   }
 
   async function showChartsOverlay() {
+    // Re-check current flag LIVE from API (don't trust cached state)
+    try {
+      const v = await api('/api/visuals/active');
+      state.chartsOverlayEnabled = v.charts_overlay !== false;
+    } catch {}
+
+    if (state.chartsOverlayEnabled === false) {
+      console.log('[Charts] flag is off, skipping show. Re-scheduling check in 30s.');
+      state._chartsTimer = setTimeout(showChartsOverlay, 30 * 1000);
+      return;
+    }
+
     console.log('[Charts] showing');
     try {
       const r = await api('/api/sessions/charts');
@@ -620,18 +675,31 @@
         const overlay = $('tv-charts-overlay');
         if (overlay) {
           overlay.classList.add('is-visible');
-          setTimeout(() => {
+          state._chartsTimer = setTimeout(() => {
             overlay.classList.remove('is-visible');
-            setTimeout(showChartsOverlay, 30 * 1000);
+            state._chartsTimer = setTimeout(showChartsOverlay, 30 * 1000);
           }, 10 * 1000);
           return;
         }
       }
-      setTimeout(showChartsOverlay, 30 * 1000);
+      state._chartsTimer = setTimeout(showChartsOverlay, 30 * 1000);
     } catch (err) {
       console.error('[Charts] error:', err);
-      setTimeout(showChartsOverlay, 30 * 1000);
+      state._chartsTimer = setTimeout(showChartsOverlay, 30 * 1000);
     }
+  }
+
+  function stopChartsOverlay() {
+    // Clear any pending charts timer
+    if (state._chartsTimer) {
+      clearTimeout(state._chartsTimer);
+      clearInterval(state._chartsTimer);
+      state._chartsTimer = null;
+    }
+    // Hide overlay if visible right now
+    const overlay = $('tv-charts-overlay');
+    if (overlay) overlay.classList.remove('is-visible');
+    console.log('[Charts] stopped');
   }
 
   function renderChartsOverlay(charts) {
@@ -681,26 +749,34 @@
     if (!section) return;
 
     const isLive = state.sessionMode === 'live-dj';
-    const profile = state.activeDjProfile;
 
-    if (!isLive || !profile) {
+    if (!isLive) {
       section.style.display = 'none';
       return;
     }
 
+    // In live mode: always show the card, even if no profile is selected
     section.style.display = 'block';
 
+    const profile = state.activeDjProfile;
     const nameEl = $('tv-dj-profile-name');
     const logoEl = $('tv-dj-profile-logo');
 
-    if (nameEl) nameEl.textContent = profile.name || 'DJ';
-
-    if (logoEl) {
-      if (profile.logo_filename) {
-        logoEl.onload = () => logoEl.classList.add('is-loaded');
-        logoEl.onerror = () => logoEl.classList.remove('is-loaded');
-        logoEl.src = `/api/dj-profiles/uploads/${encodeURIComponent(profile.logo_filename)}`;
-      } else {
+    if (profile) {
+      if (nameEl) nameEl.textContent = profile.name || 'DJ';
+      if (logoEl) {
+        if (profile.logo_filename) {
+          logoEl.onload = () => logoEl.classList.add('is-loaded');
+          logoEl.onerror = () => logoEl.classList.remove('is-loaded');
+          logoEl.src = `/api/dj-profiles/uploads/${encodeURIComponent(profile.logo_filename)}`;
+        } else {
+          logoEl.classList.remove('is-loaded');
+          logoEl.src = '';
+        }
+      }
+    } else {
+      if (nameEl) nameEl.textContent = 'Live-Session';
+      if (logoEl) {
         logoEl.classList.remove('is-loaded');
         logoEl.src = '';
       }

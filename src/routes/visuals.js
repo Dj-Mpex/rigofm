@@ -64,7 +64,8 @@ router.get('/', (req, res) => {
     const activeId = db.prepare("SELECT value FROM settings WHERE key = 'active_visuals_preset_id'").get()?.value || '';
     const tvSource = db.prepare("SELECT value FROM settings WHERE key = 'live_tv_source'").get()?.value || 'tracks';
     const tvMuted = db.prepare("SELECT value FROM settings WHERE key = 'live_tv_muted'").get()?.value === 'true';
-    res.json({ presets, active_id: activeId, tv_source: tvSource, tv_muted: tvMuted });
+    const chartsOverlay = db.prepare("SELECT value FROM settings WHERE key = 'tv_charts_overlay_enabled'").get()?.value !== 'false';
+    res.json({ presets, active_id: activeId, tv_source: tvSource, tv_muted: tvMuted, charts_overlay: chartsOverlay });
   } catch (err) {
     console.error('List visuals:', err);
     res.status(500).json({ error: 'Konnte Visuals nicht laden' });
@@ -77,11 +78,12 @@ router.get('/active', (req, res) => {
     const activeId = db.prepare("SELECT value FROM settings WHERE key = 'active_visuals_preset_id'").get()?.value || '';
     const tvSource = db.prepare("SELECT value FROM settings WHERE key = 'live_tv_source'").get()?.value || 'tracks';
     const tvMuted = db.prepare("SELECT value FROM settings WHERE key = 'live_tv_muted'").get()?.value === 'true';
+    const chartsOverlay = db.prepare("SELECT value FROM settings WHERE key = 'tv_charts_overlay_enabled'").get()?.value !== 'false';
     let preset = null;
     if (activeId) {
       preset = db.prepare("SELECT * FROM visuals_presets WHERE id = ?").get(activeId) || null;
     }
-    res.json({ preset, tv_source: tvSource, tv_muted: tvMuted });
+    res.json({ preset, tv_source: tvSource, tv_muted: tvMuted, charts_overlay: chartsOverlay });
   } catch (err) {
     console.error('Get active visuals:', err);
     res.status(500).json({ error: 'Konnte aktives Preset nicht laden' });
@@ -100,7 +102,7 @@ router.put('/active/:id', (req, res) => {
       db.prepare("UPDATE settings SET value = ? WHERE key = 'active_visuals_preset_id'").run(id);
     }
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
+    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
     res.json({ success: true });
   } catch (err) {
     console.error('Set active visuals:', err);
@@ -117,7 +119,7 @@ router.put('/tv-source', (req, res) => {
     }
     db.prepare("UPDATE settings SET value = ? WHERE key = 'live_tv_source'").run(source);
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
+    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
     res.json({ success: true, source });
   } catch (err) {
     console.error('Set tv source:', err);
@@ -132,11 +134,26 @@ router.put('/tv-mute', (req, res) => {
     const val = muted === true ? 'true' : 'false';
     db.prepare("UPDATE settings SET value = ? WHERE key = 'live_tv_muted'").run(val);
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
+    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
     res.json({ success: true, muted: val === 'true' });
   } catch (err) {
     console.error('Set tv mute:', err);
     res.status(500).json({ error: 'Konnte Mute nicht umschalten' });
+  }
+});
+
+// === Toggle Charts Overlay ===
+router.put('/charts-overlay', (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const val = enabled === false ? 'false' : 'true';
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'tv_charts_overlay_enabled'").run(val);
+    const sockets = req.app.locals.sockets;
+    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
+    res.json({ success: true, enabled: val === 'true' });
+  } catch (err) {
+    console.error('Set charts overlay:', err);
+    res.status(500).json({ error: 'Konnte Charts-Overlay nicht umschalten' });
   }
 });
 

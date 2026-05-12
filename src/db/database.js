@@ -199,6 +199,14 @@ try {
   }
 } catch (e) { console.error('Migration visuals settings failed:', e.message); }
 
+try {
+  const exists = db.prepare("SELECT 1 FROM settings WHERE key = 'tv_charts_overlay_enabled'").get();
+  if (!exists) {
+    db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)").run('tv_charts_overlay_enabled', 'true', Date.now());
+    console.log('   → migrated: tv_charts_overlay_enabled setting added');
+  }
+} catch (e) { console.error('Migration tv_charts_overlay_enabled failed:', e.message); }
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;

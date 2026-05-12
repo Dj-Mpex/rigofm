@@ -70,6 +70,48 @@
     bindModeToggle();
     bindDjProfileModal();
     bindVisualsUI();
+
+    // Charts toggle: hard-bind directly on the row via event delegation
+    const chartsRow = document.getElementById('dj-charts-row');
+    if (chartsRow) {
+      chartsRow.addEventListener('click', async (ev) => {
+        const link = ev.target.closest('[data-charts-val]');
+        if (!link) return;
+        ev.preventDefault();
+        const enabled = link.getAttribute('data-charts-val') === 'true';
+        console.log('[charts] click', enabled);
+
+        // Update button state IMMEDIATELY (optimistic UI)
+        const onLink = document.getElementById('dj-charts-on-link');
+        const offLink = document.getElementById('dj-charts-off-link');
+        if (onLink) onLink.classList.toggle('is-active', enabled);
+        if (offLink) offLink.classList.toggle('is-active', !enabled);
+
+        try {
+          await api('/api/visuals/charts-overlay', { method: 'PUT', body: JSON.stringify({ enabled }) });
+          // Don't call loadVisuals() — it re-renders and overwrites our state
+          // Just update the summary status text
+          const status = document.getElementById('dj-visuals-summary-status');
+          if (status) {
+            const current = status.textContent || '';
+            const parts = current.split(' · ');
+            if (parts.length >= 2) {
+              parts[2] = enabled ? 'Charts an' : 'Charts aus';
+              status.textContent = parts.slice(0, 3).join(' · ');
+            }
+          }
+        } catch (e) {
+          // Revert on error
+          if (onLink) onLink.classList.toggle('is-active', !enabled);
+          if (offLink) offLink.classList.toggle('is-active', enabled);
+          alert(e.message);
+        }
+      });
+      console.log('[charts] row listener attached');
+    } else {
+      console.warn('[charts] row not found at bind time');
+    }
+
     await loadMode();
     bootLiveDjStateOnce();
   }
@@ -1151,6 +1193,7 @@
       renderVisualsList(r.presets || [], r.active_id || '');
       renderSourceToggle(r.tv_source || 'tracks');
       renderMuteToggle(r.tv_muted === true);
+      renderChartsToggle(r.charts_overlay !== false);
       renderVisualsSummary(r);
     } catch (e) {
       console.error('Load visuals:', e);
@@ -1162,7 +1205,8 @@
     if (!status) return;
     const sourceLabel = r.tv_source === 'visuals' ? 'Visuals' : 'Tracks';
     const muteLabel = r.tv_muted ? 'stumm' : 'Audio an';
-    status.textContent = `${sourceLabel} · ${muteLabel}`;
+    const chartsLabel = r.charts_overlay === false ? 'Charts aus' : 'Charts an';
+    status.textContent = `${sourceLabel} · ${muteLabel} · ${chartsLabel}`;
   }
 
   function renderSourceToggle(source) {
@@ -1178,6 +1222,23 @@
     if (a) a.classList.toggle('is-active', !muted);
     if (b) b.classList.toggle('is-active', muted);
   }
+
+  function renderChartsToggle(enabled) {
+    const a = document.getElementById('dj-charts-on-link');
+    const b = document.getElementById('dj-charts-off-link');
+    if (a) a.classList.toggle('is-active', enabled);
+    if (b) b.classList.toggle('is-active', !enabled);
+  }
+
+  async function setChartsOverlay(enabled) {
+    try {
+      await api('/api/visuals/charts-overlay', { method: 'PUT', body: JSON.stringify({ enabled }) });
+      loadVisuals();
+    } catch (e) { alert(e.message); }
+  }
+
+  // Expose for inline onclick handlers (defensive — bind-via-addEventListener was unreliable)
+  window.__setChartsOverlay = setChartsOverlay;
 
   function renderVisualsList(presets, activeId) {
     const c = $('dj-visuals-list');
@@ -1329,5 +1390,15 @@
     $('dj-source-visuals')?.addEventListener('click', () => setTvSource('visuals'));
     $('dj-mute-off')?.addEventListener('click', () => setTvMute(false));
     $('dj-mute-on')?.addEventListener('click', () => setTvMute(true));
+    $('dj-charts-on')?.addEventListener('click', () => setChartsOverlay(true));
+    $('dj-charts-off')?.addEventListener('click', () => setChartsOverlay(false));
+
+    // Delegated fallback: catches any data-charts button click even if direct bind failed
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-charts]');
+      if (!btn) return;
+      const enabled = btn.getAttribute('data-charts') === 'true';
+      setChartsOverlay(enabled);
+    });
   }
 })();

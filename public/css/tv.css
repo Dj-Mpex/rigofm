@@ -906,3 +906,15 @@ body::before {
   text-overflow: ellipsis;
 }
 
+/* In live mode when no real track exists, the DJ profile card stands alone */
+.tv-side-panel.is-live-solo .tv-dj-profile-card {
+  padding: 22px 24px;
+}
+.tv-side-panel.is-live-solo .tv-dj-profile-logo-wrap {
+  width: 72px;
+  height: 72px;
+}
+.tv-side-panel.is-live-solo .tv-dj-profile-name {
+  font-size: 1.7rem;
+}
+
