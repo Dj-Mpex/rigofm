@@ -26,13 +26,7 @@ const PORT = process.env.PORT || 3002;
 // This makes req.ip return the real client IP, not 127.0.0.1
 app.set('trust proxy', true);
 
-// Security headers via Helmet (CSP relaxed for YouTube embeds + Google Fonts)
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  crossOriginOpenerPolicy: { policy: 'unsafe-none' }
-}));
+// app.use(helmet({ ... }));  // disabled - breaks YouTube iframe player
 
 // Rate limiters (per IP)
 const generalLimiter = rateLimit({
