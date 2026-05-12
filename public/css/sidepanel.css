@@ -1,13 +1,28 @@
 /* === Sidepanel for OBS Browser Source === */
-/* Transparent background for OBS compositing */
+/* === Force transparent, no animations === */
 html, body, .sp-body {
   background: transparent !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  animation: none !important;
   margin: 0;
   padding: 0;
   height: 100%;
   font-family: 'Inter', sans-serif;
   color: #fff;
   overflow: hidden;
+}
+
+/* Kill any pseudo-element backgrounds from tv.css */
+.sp-body::before,
+.sp-body::after,
+html::before,
+html::after,
+body::before,
+body::after {
+  display: none !important;
+  background: none !important;
+  animation: none !important;
 }
 
 .sp-main {
