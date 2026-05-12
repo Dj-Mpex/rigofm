@@ -233,6 +233,8 @@
       bindUI();
       await refreshQueue();
       loadGuestHistory();
+      bindLivestreamUI();
+      loadLivestreamConfig();
     } catch (err) {
       console.error('Load session error:', err);
       $('error-msg').textContent = err.message === 'Session not found or ended'
@@ -312,7 +314,7 @@
       if (n === 3) toast('Verbindung wackelt …', 'error');
     });
 
-    state.socket.on('queue:updated', () => { refreshQueue(); loadGuestHistory(); });
+    state.socket.on('queue:updated', () => { refreshQueue(); loadGuestHistory(); updateLivestreamMiniOverlay(); });
 
     state.socket.on('config:changed', async () => {
       try {
@@ -343,6 +345,10 @@
       // Show kicked screen
       $('error-msg').textContent = 'Du wurdest vom DJ aus der Party entfernt.';
       showView('error');
+    });
+
+    state.socket.on('livestream:status', (data) => {
+      updateLivestreamStatus(data?.online === true);
     });
 
     // Refresh when tab becomes visible again (e.g. user switched away and back)
@@ -856,6 +862,129 @@
     }
 
     setTimeout(() => container.remove(), 3500);
+  }
+
+  // === Livestream ===
+  let _hls = null;
+  let _streamUrl = '';
+
+  async function loadLivestreamConfig() {
+    try {
+      const r = await api('/api/livestream/config');
+      _streamUrl = r.streamUrl || '';
+      updateLivestreamStatus(r.online === true);
+    } catch (e) {
+      console.error('Livestream config:', e);
+    }
+  }
+
+  function updateLivestreamStatus(online) {
+    const card = document.getElementById('livestream-card');
+    if (!card) return;
+    if (online && _streamUrl) {
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+      closeLivestreamPlayer();
+    }
+  }
+
+  function openLivestreamPlayer() {
+    if (!_streamUrl) return;
+    const modal = document.getElementById('livestream-player-modal');
+    const video = document.getElementById('livestream-video');
+    if (!modal || !video) return;
+
+    modal.style.display = 'flex';
+
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native HLS
+      video.src = _streamUrl;
+    } else if (window.Hls && window.Hls.isSupported()) {
+      if (_hls) { try { _hls.destroy(); } catch {} _hls = null; }
+      _hls = new window.Hls({ lowLatencyMode: true });
+      _hls.loadSource(_streamUrl);
+      _hls.attachMedia(video);
+    } else {
+      video.src = _streamUrl;
+    }
+
+    video.muted = true;
+    video.play().catch(() => {});
+
+    updateLivestreamMiniOverlay();
+  }
+
+  function closeLivestreamPlayer() {
+    const modal = document.getElementById('livestream-player-modal');
+    const video = document.getElementById('livestream-video');
+    if (modal) modal.style.display = 'none';
+    if (video) {
+      try { video.pause(); } catch {}
+      video.src = '';
+      video.removeAttribute('src');
+    }
+    if (_hls) {
+      try { _hls.destroy(); } catch {}
+      _hls = null;
+    }
+  }
+
+  function toggleLivestreamFullscreen() {
+    const modal = document.getElementById('livestream-player-modal');
+    if (!modal) return;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } else {
+      if (modal.requestFullscreen) modal.requestFullscreen();
+      else if (modal.webkitRequestFullscreen) modal.webkitRequestFullscreen();
+    }
+  }
+
+  function updateLivestreamMiniOverlay() {
+    const overlay = document.getElementById('livestream-mini-overlay');
+    if (!overlay) return;
+    const playing = (state.queue || []).find(t => t.status === 'playing');
+    if (!playing) {
+      overlay.style.display = 'none';
+      return;
+    }
+    overlay.style.display = 'block';
+    const thumb = document.getElementById('livestream-mini-thumb');
+    const title = document.getElementById('livestream-mini-title');
+    const artist = document.getElementById('livestream-mini-artist');
+    const voteBtn = document.getElementById('livestream-mini-vote');
+    if (thumb) thumb.src = playing.thumbnail || '';
+    if (title) title.textContent = playing.title || '';
+    if (artist) artist.textContent = playing.artist || '';
+    if (voteBtn) voteBtn.setAttribute('data-livestream-vote', playing.id);
+  }
+
+  function bindLivestreamUI() {
+    const card = document.getElementById('livestream-card');
+    const closeBtn = document.getElementById('livestream-close-btn');
+    const fsBtn = document.getElementById('livestream-fullscreen-btn');
+
+    if (card) card.addEventListener('click', openLivestreamPlayer);
+    if (closeBtn) closeBtn.addEventListener('click', closeLivestreamPlayer);
+    if (fsBtn) fsBtn.addEventListener('click', toggleLivestreamFullscreen);
+
+    // Vote from mini overlay
+    document.body.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('[data-livestream-vote]');
+      if (!btn) return;
+      const trackId = btn.getAttribute('data-livestream-vote');
+      if (!trackId || !state.guest?.id) return;
+      try {
+        await api(`/api/tracks/${trackId}/vote`, {
+          method: 'POST',
+          body: JSON.stringify({ guestId: state.guest.id, value: 1 })
+        });
+        btn.textContent = '✓';
+        setTimeout(() => { btn.textContent = '👍'; }, 1500);
+      } catch (e) { /* ignore */ }
+    });
   }
 
   // --- Start ---

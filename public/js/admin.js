@@ -113,8 +113,10 @@
     }
 
     bindArchiveUI();
+    bindLivestreamAdminUI();
     await loadMode();
     bootLiveDjStateOnce();
+    loadLivestreamAdmin();
   }
 
   async function refreshAll() {
@@ -172,6 +174,7 @@
     socket.on('config:changed', () => {
       loadMode();
       if (document.body.classList.contains('live-dj-active')) loadDjView();
+      loadLivestreamAdmin();
     });
     socket.on('pending:updated', () => {
       if (document.body.classList.contains('live-dj-active')) loadDjView();
@@ -1561,6 +1564,42 @@
           loadArchive();
         } catch (err) { alert(err.message); }
       });
+    });
+  }
+
+  // === Livestream Admin ===
+  async function loadLivestreamAdmin() {
+    try {
+      const r = await api(`/api/livestream/admin?adminPassword=${encodeURIComponent(adminPassword)}`);
+      const urlInput = document.getElementById('livestream-url-input');
+      const statusInput = document.getElementById('livestream-status-input');
+      const statusBadge = document.getElementById('livestream-current-status');
+      if (urlInput) urlInput.value = r.streamUrl || '';
+      if (statusInput) statusInput.value = r.statusUrl || '';
+      if (statusBadge) statusBadge.textContent = r.online ? '🟢 Live' : '⚫ Offline';
+    } catch (e) {
+      console.error('Load livestream:', e);
+    }
+  }
+
+  function bindLivestreamAdminUI() {
+    const saveBtn = document.getElementById('livestream-save-btn');
+    if (!saveBtn) return;
+    saveBtn.addEventListener('click', async () => {
+      const streamUrl = document.getElementById('livestream-url-input').value.trim();
+      const statusUrl = document.getElementById('livestream-status-input').value.trim();
+      try {
+        await api('/api/livestream/admin', {
+          method: 'PUT',
+          body: JSON.stringify({ adminPassword, streamUrl, statusUrl })
+        });
+        const msg = document.getElementById('livestream-save-msg');
+        if (msg) {
+          msg.style.display = 'inline';
+          setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+        loadLivestreamAdmin();
+      } catch (e) { alert(e.message); }
     });
   }
 })();

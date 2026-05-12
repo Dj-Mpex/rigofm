@@ -83,10 +83,15 @@ function broadcastGuestKicked(guestId) {
   ioInstance.emit('guest:kicked', { guestId });
 }
 
+function broadcastLivestreamStatus(online) {
+  if (!ioInstance) return;
+  ioInstance.emit('livestream:status', { online });
+}
+
 // Helper: get session code by session id
 function getSessionCodeById(sessionId) {
   const row = db.prepare('SELECT code FROM sessions WHERE id = ?').get(sessionId);
   return row ? row.code : null;
 }
 
-module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, broadcastTrackApproved, broadcastTrackRejected, broadcastGuestKicked, getSessionCodeById };
+module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, broadcastTrackApproved, broadcastTrackRejected, broadcastGuestKicked, broadcastLivestreamStatus, getSessionCodeById };

@@ -159,6 +159,42 @@
     </div>
   </div>
 
+  <!-- Livestream floating card -->
+  <div id="livestream-card" class="livestream-card" style="display:none;">
+    <div class="livestream-card-inner" id="livestream-card-inner">
+      <span class="livestream-dot"></span>
+      <span class="livestream-label">LIVE schauen</span>
+    </div>
+  </div>
+
+  <!-- Livestream player modal -->
+  <div id="livestream-player-modal" class="livestream-player-modal" style="display:none;">
+    <div class="livestream-player-wrap">
+      <div class="livestream-player-header">
+        <div class="livestream-player-status">
+          <span class="livestream-dot livestream-dot--big"></span>
+          <span>LIVE</span>
+        </div>
+        <div class="livestream-player-actions">
+          <button id="livestream-fullscreen-btn" class="livestream-action-btn" aria-label="Vollbild">⛶</button>
+          <button id="livestream-close-btn" class="livestream-action-btn" aria-label="Schließen">×</button>
+        </div>
+      </div>
+      <video id="livestream-video" class="livestream-video" controls playsinline muted></video>
+      <div id="livestream-mini-overlay" class="livestream-mini-overlay" style="display:none;">
+        <div class="livestream-mini-now">
+          <img id="livestream-mini-thumb" class="livestream-mini-thumb" alt="">
+          <div class="livestream-mini-info">
+            <div id="livestream-mini-title" class="livestream-mini-title">—</div>
+            <div id="livestream-mini-artist" class="livestream-mini-artist">—</div>
+          </div>
+          <button id="livestream-mini-vote" class="livestream-mini-vote" aria-label="Upvote">👍</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/guest.js"></script>
 </body>

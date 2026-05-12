@@ -207,6 +207,21 @@ try {
   }
 } catch (e) { console.error('Migration tv_charts_overlay_enabled failed:', e.message); }
 
+// Migration: livestream URL overrides (admin can override .env values via settings)
+try {
+  const livestreamKeys = [
+    { key: 'livestream_url_override', value: '' },
+    { key: 'livestream_status_url_override', value: '' }
+  ];
+  for (const k of livestreamKeys) {
+    const exists = db.prepare("SELECT 1 FROM settings WHERE key = ?").get(k.key);
+    if (!exists) {
+      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)").run(k.key, k.value, Date.now());
+      console.log(`   → migrated: ${k.key} setting added`);
+    }
+  }
+} catch (e) { console.error('Migration livestream settings failed:', e.message); }
+
 // Migration: make tracks.added_by_guest_id nullable + add denormalized added_by_emoji column.
 // SQLite cannot ALTER column constraints, so we recreate the table.
 // Guard: if added_by_emoji column already exists the migration already ran.

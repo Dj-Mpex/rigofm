@@ -21,6 +21,8 @@ const settingsRouter = require('./routes/settings');
 const djProfilesRouter = require('./routes/dj-profiles');
 const visualsRouter = require('./routes/visuals');
 const guestsRouter = require('./routes/guests');
+const livestreamRouter = require('./routes/livestream');
+const livestreamService = require('./services/livestream');
 const sockets = require('./sockets');
 
 const PORT = process.env.PORT || 3002;
@@ -93,6 +95,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/dj-profiles', djProfilesRouter);
 app.use('/api/visuals', visualsRouter);
 app.use('/api/guests', guestsRouter);
+app.use('/api/livestream', livestreamRouter);
 
 // QR code generator
 app.get('/api/qr', async (req, res) => {
@@ -133,6 +136,9 @@ app.get('/tv', (req, res) => {
 
 // Initialize sockets
 sockets.init(io);
+
+// Start livestream status poller
+livestreamService.start(sockets);
 
 server.listen(PORT, () => {
   console.log(`\n📻 Rigo FM running on http://localhost:${PORT}`);
