@@ -1265,7 +1265,7 @@
   function renderVisualsSummary(r) {
     const status = $('dj-visuals-summary-status');
     if (!status) return;
-    const sourceLabel = r.tv_source === 'visuals' ? 'Visuals' : 'Tracks';
+    const sourceLabel = r.tv_source === 'visuals' ? 'Visuals' : r.tv_source === 'dj-visuals' ? 'DJ-Visuals' : 'Tracks';
     const muteLabel = r.tv_muted ? 'stumm' : 'Audio an';
     const chartsLabel = r.charts_overlay === false ? 'Charts aus' : 'Charts an';
     status.textContent = `${sourceLabel} · ${muteLabel} · ${chartsLabel}`;
@@ -1274,8 +1274,10 @@
   function renderSourceToggle(source) {
     const a = $('dj-source-tracks');
     const b = $('dj-source-visuals');
+    const c = $('dj-source-djvisuals');
     if (a) a.classList.toggle('is-active', source === 'tracks');
     if (b) b.classList.toggle('is-active', source === 'visuals');
+    if (c) c.classList.toggle('is-active', source === 'dj-visuals');
   }
 
   function renderMuteToggle(muted) {
@@ -1430,6 +1432,7 @@
   async function setTvSource(source) {
     try {
       await api('/api/visuals/tv-source', { method: 'PUT', body: JSON.stringify({ source }) });
+      renderSourceToggle(source);
       loadVisuals();
     } catch (e) { alert(e.message); }
   }
@@ -1437,6 +1440,7 @@
   async function setTvMute(muted) {
     try {
       await api('/api/visuals/tv-mute', { method: 'PUT', body: JSON.stringify({ muted }) });
+      renderMuteToggle(muted);
       loadVisuals();
     } catch (e) { alert(e.message); }
   }
@@ -1450,6 +1454,7 @@
     });
     $('dj-source-tracks')?.addEventListener('click', () => setTvSource('tracks'));
     $('dj-source-visuals')?.addEventListener('click', () => setTvSource('visuals'));
+    $('dj-source-djvisuals')?.addEventListener('click', () => setTvSource('dj-visuals'));
     $('dj-mute-off')?.addEventListener('click', () => setTvMute(false));
     $('dj-mute-on')?.addEventListener('click', () => setTvMute(true));
     $('dj-charts-on')?.addEventListener('click', () => setChartsOverlay(true));

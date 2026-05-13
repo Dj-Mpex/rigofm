@@ -134,11 +134,6 @@ app.get('/tv', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'views', 'tv', 'index.html'));
 });
 
-// OBS Browser Source — transparent side-panel only
-app.get('/tv/sidepanel', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'views', 'tv', 'sidepanel.html'));
-});
-
 // Initialize sockets
 sockets.init(io);
 

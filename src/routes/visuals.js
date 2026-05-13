@@ -102,7 +102,7 @@ router.put('/active/:id', (req, res) => {
       db.prepare("UPDATE settings SET value = ? WHERE key = 'active_visuals_preset_id'").run(id);
     }
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
     res.json({ success: true });
   } catch (err) {
     console.error('Set active visuals:', err);
@@ -114,12 +114,12 @@ router.put('/active/:id', (req, res) => {
 router.put('/tv-source', (req, res) => {
   try {
     const { source } = req.body;
-    if (source !== 'tracks' && source !== 'visuals') {
-      return res.status(400).json({ error: 'source muss "tracks" oder "visuals" sein' });
+    if (source !== 'tracks' && source !== 'visuals' && source !== 'dj-visuals') {
+      return res.status(400).json({ error: 'source muss "tracks", "visuals" oder "dj-visuals" sein' });
     }
     db.prepare("UPDATE settings SET value = ? WHERE key = 'live_tv_source'").run(source);
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
     res.json({ success: true, source });
   } catch (err) {
     console.error('Set tv source:', err);
@@ -134,7 +134,7 @@ router.put('/tv-mute', (req, res) => {
     const val = muted === true ? 'true' : 'false';
     db.prepare("UPDATE settings SET value = ? WHERE key = 'live_tv_muted'").run(val);
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
     res.json({ success: true, muted: val === 'true' });
   } catch (err) {
     console.error('Set tv mute:', err);
@@ -149,7 +149,7 @@ router.put('/charts-overlay', (req, res) => {
     const val = enabled === false ? 'false' : 'true';
     db.prepare("UPDATE settings SET value = ? WHERE key = 'tv_charts_overlay_enabled'").run(val);
     const sockets = req.app.locals.sockets;
-    if (sockets && sockets.broadcastConfigChanged) sockets.broadcastConfigChanged();
+    if (sockets && sockets.broadcastConfigChange) sockets.broadcastConfigChange();
     res.json({ success: true, enabled: val === 'true' });
   } catch (err) {
     console.error('Set charts overlay:', err);

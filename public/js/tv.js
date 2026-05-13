@@ -177,6 +177,8 @@
       const oldCharts = state.chartsOverlayEnabled;
       state.chartsOverlayEnabled = vRes.charts_overlay !== false;
 
+      console.log('[tv] onConfigChanged:', { oldSource, newSource: state.tvSource, oldMode, newMode: state.sessionMode, tvMuted: state.tvMuted });
+
       renderDjProfileCard();
 
       // Apply charts toggle immediately
@@ -194,20 +196,27 @@
         else state.player.unMute();
       }
 
-      // Mode switch → re-decide
-      if (oldMode !== state.sessionMode) {
-        state._activeFillerPlaylistId = null; // force reload on next startFiller
+      // Source change (tracks / visuals / dj-visuals) — handle in ALL modes
+      if (oldSource !== state.tvSource) {
+        document.body.classList.toggle('tv-source-djvisuals', state.tvSource === 'dj-visuals');
+        state._activeFillerPlaylistId = null;
+        state.isFillerMode = false;
         decideWhatToPlay();
         return;
       }
 
-      // Visuals/Source change while in live-dj mode → restart filler with new source
-      if (state.sessionMode === 'live-dj') {
-        if (oldSource !== state.tvSource || (state.tvSource === 'visuals' && oldVisualsId !== newVisualsId)) {
-          state._activeFillerPlaylistId = null;
-          startFiller();
-          return;
-        }
+      // Mode switch → re-decide
+      if (oldMode !== state.sessionMode) {
+        state._activeFillerPlaylistId = null;
+        decideWhatToPlay();
+        return;
+      }
+
+      // Visuals preset changed while in live-dj + visuals mode → restart filler
+      if (state.sessionMode === 'live-dj' && state.tvSource === 'visuals' && oldVisualsId !== newVisualsId) {
+        state._activeFillerPlaylistId = null;
+        startFiller();
+        return;
       }
 
       // Filler playlist itself changed
@@ -276,6 +285,12 @@
   }
 
   function decideWhatToPlay() {
+    // DJ-Visuals mode: player stays off, external NDI/stream passes through
+    if (state.tvSource === 'dj-visuals') {
+      if (state.player && state.playerReady) try { state.player.stopVideo(); } catch {}
+      return;
+    }
+
     // Live-DJ mode: TV never plays guest tracks, only filler/visuals
     if (state.sessionMode === 'live-dj') {
       if (!state.isFillerMode) startFiller();
@@ -411,8 +426,8 @@
   }
 
   function startFiller() {
-    // Pick source: visuals preset (in live-dj mode with visuals on) OR normal filler playlist
-    const useVisuals = (state.sessionMode === 'live-dj' && state.tvSource === 'visuals' && state.activeVisualsPreset);
+    // Pick source: visuals preset (when visuals mode active) OR normal filler playlist
+    const useVisuals = (state.tvSource === 'visuals' && state.activeVisualsPreset);
 
     let sourceId = null;
     let sourceType = null;
