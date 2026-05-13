@@ -517,25 +517,25 @@
   function renderSidePanel() {
     if (!state.session) return;
 
+    const nowCard = $('tv-now-card');
+
     // LIVE-DJ MODE: hide Now-Playing card entirely unless a REAL guest track is playing/queued
     if (state.sessionMode === 'live-dj') {
-      const nowSection = document.querySelector('.tv-now-section');
       const hasRealTrack = state.queue && state.queue.some(t => t.status === 'playing' || t.status === 'queued');
 
       if (!hasRealTrack) {
-        if (nowSection) nowSection.style.display = 'none';
+        if (nowCard) nowCard.style.display = 'none';
         // Also hide filler badge if present
         const badge = $('tv-filler-badge');
         if (badge) badge.style.display = 'none';
         return;
       } else {
-        if (nowSection) nowSection.style.display = '';
+        if (nowCard) nowCard.style.display = '';
         // Continue with normal render below for real track
       }
     } else {
-      // Auto mode: ensure now-section is visible (in case it was hidden by live mode earlier)
-      const nowSection = document.querySelector('.tv-now-section');
-      if (nowSection) nowSection.style.display = '';
+      // Auto mode: ensure now-card is visible (in case it was hidden by live mode earlier)
+      if (nowCard) nowCard.style.display = '';
     }
 
     const playing = state.queue.find(t => t.status === 'playing');

@@ -21,15 +21,22 @@ function getEffectiveUrls() {
 
 async function checkStatus() {
   const { statusUrl } = getEffectiveUrls();
-  if (!statusUrl) return { online: false };
+  if (!statusUrl) {
+    console.log('[livestream] poll skipped — no statusUrl configured');
+    return { online: false };
+  }
   try {
     const res = await fetch(statusUrl, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return { online: false };
+    if (!res.ok) {
+      console.log(`[livestream] status fetch HTTP ${res.status} → offline`);
+      return { online: false };
+    }
     const json = await res.json();
     // Owncast /api/status returns { online: bool, ... }
     const online = json.online === true;
     return { online };
-  } catch {
+  } catch (err) {
+    console.log(`[livestream] status fetch error → offline (${err.message})`);
     return { online: false };
   }
 }
@@ -37,14 +44,18 @@ async function checkStatus() {
 async function _poll() {
   try {
     const { online } = await checkStatus();
+    console.log(`[livestream] online: ${online} (was: ${_lastOnline})`);
     if (_lastOnline !== online) {
       _lastOnline = online;
       if (_sockets && _sockets.broadcastLivestreamStatus) {
+        console.log(`[livestream] state changed → broadcasting online: ${online}`);
         _sockets.broadcastLivestreamStatus(online);
+      } else {
+        console.log('[livestream] state changed but no sockets module — broadcast skipped');
       }
     }
   } catch (e) {
-    console.error('Livestream poll error:', e.message);
+    console.error('[livestream] poll error:', e.message);
   }
 }
 

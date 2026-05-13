@@ -304,6 +304,7 @@
       state.socket.emit('session:join', { sessionCode: state.sessionCode });
       // Refresh on reconnect to catch missed events
       refreshQueue();
+      loadLivestreamConfig();
     });
 
     state.socket.on('disconnect', () => {
@@ -347,8 +348,14 @@
       showView('error');
     });
 
-    state.socket.on('livestream:status', (data) => {
-      updateLivestreamStatus(data?.online === true);
+    state.socket.on('livestream:status', async (data) => {
+      const online = data?.online === true;
+      if (online && !_streamUrl) {
+        // _streamUrl not loaded yet — fetch config first, it calls updateLivestreamStatus internally
+        await loadLivestreamConfig();
+      } else {
+        updateLivestreamStatus(online);
+      }
     });
 
     // Refresh when tab becomes visible again (e.g. user switched away and back)
