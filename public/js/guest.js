@@ -902,30 +902,37 @@
     const video = document.getElementById('livestream-video');
     if (!modal || !video) return;
 
-    modal.style.display = 'flex';
+    // Open in mini mode (no is-fullscreen class)
+    modal.classList.remove('is-fullscreen');
+    modal.style.display = 'block';
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native HLS
-      video.src = _streamUrl;
-    } else if (window.Hls && window.Hls.isSupported()) {
-      if (_hls) { try { _hls.destroy(); } catch {} _hls = null; }
-      _hls = new window.Hls({ lowLatencyMode: true });
-      _hls.loadSource(_streamUrl);
-      _hls.attachMedia(video);
-    } else {
-      video.src = _streamUrl;
+    // Only (re)attach stream if not already playing
+    if (!video.src && !_hls) {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS
+        video.src = _streamUrl;
+      } else if (window.Hls && window.Hls.isSupported()) {
+        _hls = new window.Hls({ lowLatencyMode: true });
+        _hls.loadSource(_streamUrl);
+        _hls.attachMedia(video);
+      } else {
+        video.src = _streamUrl;
+      }
+      video.muted = true;
+      video.play().catch(() => {});
     }
 
-    video.muted = true;
-    video.play().catch(() => {});
-
+    _updateFullscreenBtn(modal);
     updateLivestreamMiniOverlay();
   }
 
   function closeLivestreamPlayer() {
     const modal = document.getElementById('livestream-player-modal');
     const video = document.getElementById('livestream-video');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+      modal.classList.remove('is-fullscreen');
+    }
     if (video) {
       try { video.pause(); } catch {}
       video.src = '';
@@ -940,13 +947,18 @@
   function toggleLivestreamFullscreen() {
     const modal = document.getElementById('livestream-player-modal');
     if (!modal) return;
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
-      if (document.exitFullscreen) document.exitFullscreen();
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-    } else {
-      if (modal.requestFullscreen) modal.requestFullscreen();
-      else if (modal.webkitRequestFullscreen) modal.webkitRequestFullscreen();
-    }
+    const goFullscreen = !modal.classList.contains('is-fullscreen');
+    modal.classList.toggle('is-fullscreen', goFullscreen);
+    // Sync display value: flex for centered fullscreen layout, block for mini
+    modal.style.display = goFullscreen ? 'flex' : 'block';
+    _updateFullscreenBtn(modal);
+  }
+
+  function _updateFullscreenBtn(modal) {
+    const btn = document.getElementById('livestream-fullscreen-btn');
+    if (!btn) return;
+    btn.textContent = modal.classList.contains('is-fullscreen') ? '⊡' : '⛶';
+    btn.setAttribute('aria-label', modal.classList.contains('is-fullscreen') ? 'Mini-Player' : 'Vollbild');
   }
 
   function updateLivestreamMiniOverlay() {
