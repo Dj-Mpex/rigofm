@@ -223,13 +223,18 @@ try {
 } catch (e) { console.error('Migration livestream settings failed:', e.message); }
 
 // Migration: make tracks.added_by_guest_id nullable + add denormalized added_by_emoji column.
+// Also adds 'auto_played' to the status CHECK constraint.
 // SQLite cannot ALTER column constraints, so we recreate the table.
-// Guard: if added_by_emoji column already exists the migration already ran.
+// Guard: if added_by_emoji column already exists AND the constraint includes auto_played, skip.
 try {
   const trackColNames = db.prepare("PRAGMA table_info(tracks)").all().map(c => c.name);
-  if (!trackColNames.includes('added_by_emoji')) {
+  // Check if the current table already has 'auto_played' in its CHECK constraint
+  const tableSQL = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tracks'").get()?.sql || '';
+  const needsAutoPlayed = !tableSQL.includes('auto_played');
+
+  if (!trackColNames.includes('added_by_emoji') || needsAutoPlayed) {
     // Collect which optional migration columns actually exist in the old table
-    const optionalCols = ['guest_message', 'dj_note', 'manual_order'];
+    const optionalCols = ['guest_message', 'dj_note', 'manual_order', 'added_by_emoji'];
     const presentOptional = optionalCols.filter(c => trackColNames.includes(c));
 
     db.pragma('foreign_keys = OFF');
@@ -247,7 +252,7 @@ try {
             added_by_guest_id TEXT,
             added_by_name TEXT NOT NULL,
             added_by_emoji TEXT,
-            status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','playing','played','pending','rejected')),
+            status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','playing','played','pending','rejected','auto_played')),
             played_at INTEGER,
             created_at INTEGER NOT NULL,
             guest_message TEXT,
@@ -262,11 +267,12 @@ try {
         const coreCols = ['id', 'session_id', 'youtube_id', 'title', 'artist', 'thumbnail',
                           'duration', 'added_by_guest_id', 'added_by_name',
                           'status', 'played_at', 'created_at'];
-        const allDestCols = [...coreCols, 'added_by_emoji', ...optionalCols];
+        // added_by_emoji is in optionalCols — handle it specially only if not present
+        const destOptional = ['added_by_emoji', 'guest_message', 'dj_note', 'manual_order'];
+        const allDestCols = [...coreCols, ...destOptional];
         const allSrcExprs = [
           ...coreCols.map(c => c),
-          'NULL', // added_by_emoji — will be backfilled below
-          ...optionalCols.map(c => presentOptional.includes(c) ? c : 'NULL')
+          ...destOptional.map(c => presentOptional.includes(c) ? c : 'NULL')
         ];
         db.exec(`
           INSERT INTO tracks_new (${allDestCols.join(', ')})
@@ -277,7 +283,7 @@ try {
         db.exec(`
           UPDATE tracks_new
           SET added_by_emoji = (SELECT emoji FROM guests WHERE id = tracks_new.added_by_guest_id)
-          WHERE added_by_guest_id IS NOT NULL
+          WHERE added_by_guest_id IS NOT NULL AND added_by_emoji IS NULL
         `);
 
         db.exec('DROP TABLE tracks');
@@ -285,7 +291,7 @@ try {
         db.exec('CREATE INDEX IF NOT EXISTS idx_tracks_session_status ON tracks(session_id, status)');
       });
       migrate();
-      console.log('   → migrated: tracks recreated — added_by_guest_id nullable + ON DELETE SET NULL + added_by_emoji column');
+      console.log('   → migrated: tracks recreated — status CHECK includes auto_played');
     } finally {
       db.pragma('foreign_keys = ON');
     }

@@ -839,11 +839,12 @@
 
   async function loadDjView() {
     try {
-      const [pendingRes, queueRes, guestsRes, vdjRes] = await Promise.all([
+      const [pendingRes, queueRes, guestsRes, vdjRes, autoRes] = await Promise.all([
         api('/api/tracks/pending'),
         api('/api/tracks/queue'),
         api(`/api/sessions/active/guests?adminPassword=${encodeURIComponent(adminPassword)}`).catch(() => ({ guests: [] })),
-        fetch('/api/livedj/now-playing').then(r => r.json()).catch(() => null)
+        fetch('/api/livedj/now-playing').then(r => r.json()).catch(() => null),
+        fetch('/api/tracks/auto-played').then(r => r.json()).catch(() => ({ auto_played: [] }))
       ]);
       if (vdjRes) _vdjTrack = vdjRes;
       const allQueue = queueRes.queue || [];
@@ -856,6 +857,7 @@
       renderDjNowPlaying(playing);
       renderDjQueue(queued);
       renderDjPending(pendingRes.pending || []);
+      renderAutoPlayed(autoRes.auto_played || []);
       renderDjGuestsSidebar(guestsRes.guests || []);
       loadDjProfiles();
       loadVisuals();
@@ -876,6 +878,46 @@
     } else {
       card.classList.add('is-hidden');
     }
+  }
+
+  function renderAutoPlayed(tracks) {
+    const section = $('dj-auto-played-section');
+    const list = $('dj-auto-played-list');
+    const badge = $('dj-auto-played-count-badge');
+    if (!section || !list) return;
+
+    if (badge) badge.textContent = tracks.length;
+
+    if (tracks.length === 0) {
+      section.classList.add('is-hidden');
+      return;
+    }
+
+    section.classList.remove('is-hidden');
+    list.innerHTML = '';
+    tracks.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'dj-auto-played-card';
+      card.innerHTML = `
+        <div class="dj-auto-played-thumb">
+          ${t.thumbnail ? `<img src="${escapeHtml(t.thumbnail)}" alt="">` : '<span class="dj-thumb-placeholder">🎵</span>'}
+        </div>
+        <div class="dj-auto-played-info">
+          <div class="dj-auto-played-title">${escapeHtml(t.title)}</div>
+          <div class="dj-auto-played-artist">${escapeHtml(t.artist || '')}</div>
+          <div class="dj-auto-played-meta">${escapeHtml(t.added_by_emoji || '')} ${escapeHtml(t.added_by_name || '')}</div>
+        </div>
+        <button class="dj-auto-played-undo btn btn-ghost btn-sm" data-revert="${escapeHtml(t.id)}" title="Rückgängig — zurück in Queue">↩ Undo</button>
+      `;
+      card.querySelector('[data-revert]').addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-revert');
+        try {
+          await api(`/api/tracks/${id}/revert-auto-played`, { method: 'POST', body: '{}' });
+          loadDjView();
+        } catch (err) { alert(err.message); }
+      });
+      list.appendChild(card);
+    });
   }
 
   function renderDjGuestsSidebar(guests) {

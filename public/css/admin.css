@@ -1475,3 +1475,68 @@ body.live-dj-active .container {
 .dj-vdj-deck-card .vdj-label { color: #FFA547; font-weight: 700; white-space: nowrap; }
 .dj-vdj-deck-card .vdj-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dj-vdj-deck-card.is-hidden { display: none; }
+
+/* === Auto-erkannt Section === */
+.dj-auto-played-section {
+  margin-top: 16px;
+}
+.dj-auto-played-section.is-hidden { display: none; }
+.dj-count-badge--auto {
+  background: rgba(160, 110, 255, 0.18);
+  color: #B08AFF;
+  border: 1px solid rgba(160, 110, 255, 0.35);
+}
+
+.dj-auto-played-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(160, 110, 255, 0.07);
+  border: 1px solid rgba(160, 110, 255, 0.2);
+  margin-bottom: 6px;
+}
+.dj-auto-played-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dj-auto-played-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.dj-thumb-placeholder { font-size: 1.2rem; }
+.dj-auto-played-info {
+  flex: 1;
+  min-width: 0;
+}
+.dj-auto-played-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dj-auto-played-artist {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dj-auto-played-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.dj-auto-played-undo {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-color: rgba(160, 110, 255, 0.4);
+  color: #B08AFF;
+}

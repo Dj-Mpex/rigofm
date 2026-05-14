@@ -482,6 +482,53 @@ router.post('/:id/mark-playing-manual', (req, res) => {
   }
 });
 
+// GET /api/tracks/auto-played — tracks auto-matched by VDJ deck (DJ cockpit only)
+router.get('/auto-played', (req, res) => {
+  try {
+    const session = db.prepare("SELECT id FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.json({ auto_played: [] });
+
+    const rows = db.prepare(`
+      SELECT t.id, t.youtube_id, t.title, t.artist, t.thumbnail, t.played_at,
+        COALESCE(g.emoji, t.added_by_emoji) AS added_by_emoji,
+        COALESCE(g.name, t.added_by_name) AS added_by_name
+      FROM tracks t
+      LEFT JOIN guests g ON g.id = t.added_by_guest_id
+      WHERE t.session_id = ? AND t.status = 'auto_played'
+      ORDER BY t.played_at DESC
+    `).all(session.id);
+
+    res.json({ auto_played: rows });
+  } catch (err) {
+    console.error('Auto-played error:', err);
+    res.status(500).json({ error: 'Konnte Auto-Played-Liste nicht laden' });
+  }
+});
+
+// POST /api/tracks/:id/revert-auto-played — undo auto-match, set back to queued
+router.post('/:id/revert-auto-played', (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (!session) return res.status(404).json({ error: 'Keine aktive Session' });
+
+    const track = db.prepare("SELECT id, status FROM tracks WHERE id = ? AND session_id = ?")
+      .get(id, session.id);
+    if (!track) return res.status(404).json({ error: 'Track nicht gefunden' });
+    if (track.status !== 'auto_played') return res.status(400).json({ error: 'Track ist nicht auto_played' });
+
+    db.prepare("UPDATE tracks SET status = 'queued', played_at = NULL WHERE id = ?").run(id);
+
+    const sockets = req.app.locals.sockets;
+    if (sockets && sockets.broadcastQueue) sockets.broadcastQueue(session.code);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Revert auto-played error:', err);
+    res.status(500).json({ error: 'Konnte nicht rückgängig machen' });
+  }
+});
+
 router.get('/history-public', (req, res) => {
   try {
     const session = db.prepare("SELECT * FROM sessions WHERE active = 1 ORDER BY created_at DESC LIMIT 1").get();
