@@ -1001,3 +1001,16 @@ body.tv-source-djvisuals::after {
   display: none !important;
 }
 
+/* === VDJ Live Track Badge === */
+.tv-now-vdj-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #FF6B1A 0%, #FFA547 100%);
+  color: #000;
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+

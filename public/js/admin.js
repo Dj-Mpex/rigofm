@@ -180,6 +180,10 @@
       if (document.body.classList.contains('live-dj-active')) loadDjView();
     });
     socket.on('player:state', onPlayerState);
+    socket.on('livedj:track', (data) => {
+      _vdjTrack = { ...data, stale: false };
+      if (document.body.classList.contains('live-dj-active')) renderVdjDeckCard();
+    });
   }
 
   // --- Start session ---
@@ -831,20 +835,24 @@
 
   // === DJ View ===
   let _djPollTimer = null;
+  let _vdjTrack = { title: '', artist: '', updated_at: 0, stale: true };
 
   async function loadDjView() {
     try {
-      const [pendingRes, queueRes, guestsRes] = await Promise.all([
+      const [pendingRes, queueRes, guestsRes, vdjRes] = await Promise.all([
         api('/api/tracks/pending'),
         api('/api/tracks/queue'),
-        api(`/api/sessions/active/guests?adminPassword=${encodeURIComponent(adminPassword)}`).catch(() => ({ guests: [] }))
+        api(`/api/sessions/active/guests?adminPassword=${encodeURIComponent(adminPassword)}`).catch(() => ({ guests: [] })),
+        fetch('/api/livedj/now-playing').then(r => r.json()).catch(() => null)
       ]);
+      if (vdjRes) _vdjTrack = vdjRes;
       const allQueue = queueRes.queue || [];
       const playing = allQueue.find(t => t.status === 'playing');
       const queued = allQueue
         .filter(t => t.status === 'queued')
         .sort((a, b) => (b.score || 0) - (a.score || 0));
 
+      renderVdjDeckCard();
       renderDjNowPlaying(playing);
       renderDjQueue(queued);
       renderDjPending(pendingRes.pending || []);
@@ -853,6 +861,20 @@
       loadVisuals();
     } catch (e) {
       console.error('Load DJ view:', e);
+    }
+  }
+
+  function renderVdjDeckCard() {
+    const card = $('dj-vdj-deck-card');
+    const text = $('dj-vdj-deck-text');
+    if (!card) return;
+    const hasVdj = _vdjTrack && !_vdjTrack.stale && (_vdjTrack.title || _vdjTrack.artist);
+    if (hasVdj) {
+      const label = [_vdjTrack.artist, _vdjTrack.title].filter(Boolean).join(' – ');
+      if (text) text.textContent = label;
+      card.classList.remove('is-hidden');
+    } else {
+      card.classList.add('is-hidden');
     }
   }
 

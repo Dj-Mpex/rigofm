@@ -1457,3 +1457,21 @@ body.live-dj-active .container {
   background: rgba(239,68,68,0.15);
   color: #fca5a5;
 }
+
+/* === VDJ Live Deck Card === */
+.dj-vdj-deck-card {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(255,107,26,0.15) 0%, rgba(255,165,71,0.08) 100%);
+  border: 1px solid rgba(255,107,26,0.35);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dj-vdj-deck-card .vdj-icon { font-size: 1.1rem; }
+.dj-vdj-deck-card .vdj-label { color: #FFA547; font-weight: 700; white-space: nowrap; }
+.dj-vdj-deck-card .vdj-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dj-vdj-deck-card.is-hidden { display: none; }

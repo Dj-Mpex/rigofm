@@ -23,7 +23,8 @@
     activeVisualsPreset: null,
     _activeFillerPlaylistId: null,
     chartsOverlayEnabled: true,
-    _chartsTimer: null
+    _chartsTimer: null,
+    vdjTrack: { title: '', artist: '', updated_at: 0, stale: true }
   };
 
   const $ = (id) => document.getElementById(id);
@@ -89,6 +90,7 @@
         state.tvMuted = vRes.tv_muted === true;
         state.chartsOverlayEnabled = vRes.charts_overlay !== false;
       } catch {}
+      try { await loadVdjTrack(); } catch {}
       renderDjProfileCard();
       initChartsOverlay();
 
@@ -150,6 +152,17 @@
     state.socket.on('queue:updated', refreshQueue);
     state.socket.on('config:changed', onConfigChanged);
     state.socket.on('player:command', handlePlayerCommand);
+    state.socket.on('livedj:track', (data) => {
+      state.vdjTrack = { ...data, stale: false };
+      if (state.sessionMode === 'live-dj') renderSidePanel();
+    });
+  }
+
+  function loadVdjTrack() {
+    return fetch('/api/livedj/now-playing')
+      .then(r => r.json())
+      .then(d => { state.vdjTrack = d; })
+      .catch(() => {});
   }
 
   async function onConfigChanged() {
@@ -519,19 +532,18 @@
 
     const nowCard = $('tv-now-card');
 
-    // LIVE-DJ MODE: hide Now-Playing card entirely unless a REAL guest track is playing/queued
+    // LIVE-DJ MODE: hide Now-Playing card unless a guest track OR a live VDJ track is available
     if (state.sessionMode === 'live-dj') {
       const hasRealTrack = state.queue && state.queue.some(t => t.status === 'playing' || t.status === 'queued');
+      const hasVdjTrack = state.vdjTrack && !state.vdjTrack.stale && (state.vdjTrack.title || state.vdjTrack.artist);
 
-      if (!hasRealTrack) {
+      if (!hasRealTrack && !hasVdjTrack) {
         if (nowCard) nowCard.style.display = 'none';
-        // Also hide filler badge if present
         const badge = $('tv-filler-badge');
         if (badge) badge.style.display = 'none';
         return;
       } else {
         if (nowCard) nowCard.style.display = '';
-        // Continue with normal render below for real track
       }
     } else {
       // Auto mode: ensure now-card is visible (in case it was hidden by live mode earlier)
@@ -546,11 +558,25 @@
     const av = $('tv-now-avatar');
     const nm = $('tv-now-name');
     const tk = $('tv-now-track');
+    const lb = $('tv-now-label');
+    const vdjBadge = $('tv-now-vdj-badge');
+    const hasVdjTrack = state.sessionMode === 'live-dj' && state.vdjTrack && !state.vdjTrack.stale && (state.vdjTrack.title || state.vdjTrack.artist);
+
     if (playing) {
+      if (vdjBadge) vdjBadge.style.display = 'none';
+      if (lb) lb.textContent = 'NOW PLAYING · GEWÜNSCHT VON';
       if (av) av.textContent = playing.added_by_emoji || '🎵';
       if (nm) nm.textContent = playing.added_by_name || '—';
       if (tk) tk.textContent = playing.title || '';
+    } else if (hasVdjTrack) {
+      if (vdjBadge) vdjBadge.style.display = '';
+      if (lb) lb.textContent = 'NOW PLAYING · AM DECK';
+      if (av) av.textContent = '🎛️';
+      if (nm) nm.textContent = state.vdjTrack.artist || 'DJ';
+      if (tk) tk.textContent = state.vdjTrack.title || '';
     } else {
+      if (vdjBadge) vdjBadge.style.display = 'none';
+      if (lb) lb.textContent = 'NOW PLAYING · GEWÜNSCHT VON';
       if (av) av.textContent = '🎶';
       if (nm) nm.textContent = 'Filler';
       if (tk) tk.textContent = state.isFillerMode ? 'Lo-Fi-Playlist läuft' : 'Warte auf die Party…';
