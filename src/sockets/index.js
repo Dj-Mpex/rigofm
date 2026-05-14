@@ -88,10 +88,15 @@ function broadcastLivestreamStatus(online) {
   ioInstance.emit('livestream:status', { online });
 }
 
+function broadcastLiveDjTrack(data) {
+  if (!ioInstance) return;
+  ioInstance.emit('livedj:track', data);
+}
+
 // Helper: get session code by session id
 function getSessionCodeById(sessionId) {
   const row = db.prepare('SELECT code FROM sessions WHERE id = ?').get(sessionId);
   return row ? row.code : null;
 }
 
-module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, broadcastTrackApproved, broadcastTrackRejected, broadcastGuestKicked, broadcastLivestreamStatus, getSessionCodeById };
+module.exports = { init, broadcastQueue, broadcastTrackEvent, broadcastConfigChange, broadcastPendingUpdate, broadcastTrackApproved, broadcastTrackRejected, broadcastGuestKicked, broadcastLivestreamStatus, broadcastLiveDjTrack, getSessionCodeById };

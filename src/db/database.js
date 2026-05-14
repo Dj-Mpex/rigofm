@@ -308,6 +308,23 @@ try {
   if (result.changes > 0) console.log(`   → cleaned ${result.changes} expired cache entries`);
 } catch (e) { console.error('Cache cleanup failed:', e.message); }
 
+// VDJ Live Now-Playing (single row, key-value style)
+try {
+  const keys = [
+    { key: 'vdj_live_title', value: '' },
+    { key: 'vdj_live_artist', value: '' },
+    { key: 'vdj_live_updated_at', value: '0' },
+    { key: 'vdj_live_token', value: '' }
+  ];
+  for (const k of keys) {
+    const exists = db.prepare("SELECT 1 FROM settings WHERE key = ?").get(k.key);
+    if (!exists) {
+      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)").run(k.key, k.value, Date.now());
+      console.log(`   → migrated: ${k.key} setting added`);
+    }
+  }
+} catch (e) { console.error('Migration vdj_live failed:', e.message); }
+
 console.log('📀 Database ready:', dbPath);
 
 module.exports = db;

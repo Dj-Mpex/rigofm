@@ -22,6 +22,7 @@ const djProfilesRouter = require('./routes/dj-profiles');
 const visualsRouter = require('./routes/visuals');
 const guestsRouter = require('./routes/guests');
 const livestreamRouter = require('./routes/livestream');
+const livedjRouter = require('./routes/livedj');
 const livestreamService = require('./services/livestream');
 const sockets = require('./sockets');
 
@@ -96,6 +97,7 @@ app.use('/api/dj-profiles', djProfilesRouter);
 app.use('/api/visuals', visualsRouter);
 app.use('/api/guests', guestsRouter);
 app.use('/api/livestream', livestreamRouter);
+app.use('/api/livedj', livedjRouter);
 
 // QR code generator
 app.get('/api/qr', async (req, res) => {
