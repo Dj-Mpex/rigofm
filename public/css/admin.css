@@ -1383,6 +1383,14 @@ body.live-dj-active .container {
   border-color: rgba(239,68,68,0.4);
   color: #fca5a5;
 }
+.archive-card-btn-export {
+  background: linear-gradient(135deg, rgba(60, 220, 130, 0.18) 0%, rgba(60, 180, 100, 0.10) 100%);
+  border: 1px solid rgba(60, 220, 130, 0.35);
+  color: #4FCB7E;
+}
+.archive-card-btn-export:hover {
+  background: linear-gradient(135deg, rgba(60, 220, 130, 0.30) 0%, rgba(60, 180, 100, 0.18) 100%);
+}
 
 /* === DJ Guests Sidebar === */
 .dj-guests-sidebar {

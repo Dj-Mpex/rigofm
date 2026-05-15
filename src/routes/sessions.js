@@ -384,4 +384,38 @@ router.delete('/:id/archive', (req, res) => {
   }
 });
 
+// GET /api/sessions/:id/export-m3u — download played tracks as M3U playlist
+router.get('/:id/export-m3u', (req, res) => {
+  try {
+    const sessionId = req.params.id;
+    const session = db.prepare("SELECT id, code, name, created_at FROM sessions WHERE id = ?").get(sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    const tracks = db.prepare(
+      "SELECT artist, title FROM tracks WHERE session_id = ? AND status IN ('played', 'playing') AND played_at IS NOT NULL ORDER BY played_at ASC"
+    ).all(sessionId);
+
+    let m3u = '#EXTM3U\n';
+    for (const t of tracks) {
+      const artist = (t.artist || '').trim();
+      const title = (t.title || '').trim();
+      const line = artist ? `${artist} - ${title}` : title;
+      if (line && line !== '-') {
+        m3u += `#EXTINF:-1,${line}\n`;
+      }
+    }
+
+    const dateStr = new Date(session.created_at).toISOString().slice(0, 10);
+    const sessionNameSafe = (session.name || 'rigo-session').replace(/[^a-z0-9-_]/gi, '_');
+    const filename = `${sessionNameSafe}-${dateStr}-${session.code}.m3u`;
+
+    res.setHeader('Content-Type', 'audio/x-mpegurl; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(m3u);
+  } catch (err) {
+    console.error('M3U export error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

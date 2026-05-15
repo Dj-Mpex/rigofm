@@ -1563,12 +1563,20 @@
           </div>
           ${topTrack}
           <div class="archive-card-actions">
+            <button class="archive-card-btn archive-card-btn-export" data-export="${escapeHtml(s.id)}" title="Tracks als M3U-Playlist exportieren">📥 M3U</button>
             <button class="archive-card-btn" data-reactivate="${escapeHtml(s.id)}" ${canReactivate ? '' : 'disabled'} title="${canReactivate ? '' : (hasActive ? 'Beende erst die aktive Session' : 'Bereits aktiv')}">↻ Reaktivieren</button>
             <button class="archive-card-btn is-danger" data-delete="${escapeHtml(s.id)}" ${canDelete ? '' : 'disabled'} title="${canDelete ? '' : 'Aktive Session zuerst beenden'}">× Löschen</button>
           </div>
         </div>
       `;
     }).join('');
+
+    c.querySelectorAll('[data-export]').forEach(b => {
+      b.addEventListener('click', () => {
+        const id = b.getAttribute('data-export');
+        window.location.href = `/api/sessions/${encodeURIComponent(id)}/export-m3u`;
+      });
+    });
 
     c.querySelectorAll('[data-reactivate]').forEach(b => {
       b.addEventListener('click', async () => {
