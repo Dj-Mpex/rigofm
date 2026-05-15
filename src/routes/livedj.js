@@ -77,22 +77,45 @@ router.post('/now-playing', express.json({ limit: '4kb' }), (req, res) => {
       sockets.broadcastLiveDjTrack({ title: trimTitle, artist: trimArtist, updated_at: Date.now() });
     }
 
-    // === Auto-Match: if session is in live-dj mode, find a matching queued track ===
+    // === Auto-Match: promote matching queued track to 'playing', retire previous playing track ===
     try {
       const session = db.prepare("SELECT id, code, mode FROM sessions WHERE active = 1 LIMIT 1").get();
       if (session && session.mode === 'live-dj' && (trimTitle || trimArtist)) {
-        const queued = db.prepare(`
-          SELECT id, title, artist FROM tracks
-          WHERE session_id = ? AND status = 'queued'
-          ORDER BY created_at ASC
-        `).all(session.id);
+        const currentlyPlaying = db.prepare(
+          "SELECT id, title, artist FROM tracks WHERE session_id = ? AND status = 'playing'"
+        ).get(session.id);
 
-        const matched = queued.find(t => fuzzyMatch(trimArtist, trimTitle, t.artist, t.title));
-        if (matched) {
-          db.prepare(`
-            UPDATE tracks SET status = 'auto_played', played_at = ? WHERE id = ?
-          `).run(Date.now(), matched.id);
-          console.log(`[livedj] auto-match: "${matched.artist} - ${matched.title}" → auto_played`);
+        const queuedTracks = db.prepare(
+          "SELECT id, title, artist FROM tracks WHERE session_id = ? AND status = 'queued' ORDER BY created_at ASC"
+        ).all(session.id);
+
+        let matchedTrack = null;
+        for (const t of queuedTracks) {
+          if (fuzzyMatch(trimArtist, trimTitle, t.artist, t.title)) {
+            matchedTrack = t;
+            break;
+          }
+        }
+
+        // Same track still playing — nothing to do
+        if (currentlyPlaying && matchedTrack && currentlyPlaying.id === matchedTrack.id) {
+          // no-op
+        } else {
+          // Retire the previous playing track if there is one
+          if (currentlyPlaying && (!matchedTrack || currentlyPlaying.id !== matchedTrack.id)) {
+            db.prepare("UPDATE tracks SET status = 'played', played_at = ? WHERE id = ?")
+              .run(Date.now(), currentlyPlaying.id);
+            console.log(`[livedj] previous track → played: "${currentlyPlaying.artist} - ${currentlyPlaying.title}"`);
+          }
+
+          if (matchedTrack) {
+            db.prepare("UPDATE tracks SET status = 'playing', played_at = ? WHERE id = ?")
+              .run(Date.now(), matchedTrack.id);
+            console.log(`[livedj] auto-matched → playing: "${matchedTrack.artist} - ${matchedTrack.title}"`);
+          } else {
+            console.log(`[livedj] no queue match for "${trimArtist} - ${trimTitle}"`);
+          }
+
           if (sockets && sockets.broadcastQueue) {
             sockets.broadcastQueue(session.code);
           }
@@ -145,6 +168,7 @@ router.delete('/now-playing', (req, res) => {
   if (expectedToken && provided !== expectedToken) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+
   setSetting('vdj_live_title', '');
   setSetting('vdj_live_artist', '');
   setSetting('vdj_live_updated_at', '0');
@@ -153,6 +177,30 @@ router.delete('/now-playing', (req, res) => {
   if (sockets && sockets.broadcastLiveDjTrack) {
     sockets.broadcastLiveDjTrack({ title: '', artist: '', updated_at: 0 });
   }
+
+  // Mark any currently-playing track as played (VDJ stopped)
+  try {
+    const session = db.prepare("SELECT id, code FROM sessions WHERE active = 1 LIMIT 1").get();
+    if (session) {
+      const playingTracks = db.prepare(
+        "SELECT id FROM tracks WHERE session_id = ? AND status = 'playing'"
+      ).all(session.id);
+
+      if (playingTracks.length > 0) {
+        const now = Date.now();
+        for (const t of playingTracks) {
+          db.prepare("UPDATE tracks SET status = 'played', played_at = ? WHERE id = ?").run(now, t.id);
+        }
+        console.log(`[livedj] VDJ stopped — marked ${playingTracks.length} playing track(s) as played`);
+        if (sockets && sockets.broadcastQueue) {
+          sockets.broadcastQueue(session.code);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[livedj] stop cleanup error:', e.message);
+  }
+
   res.json({ success: true });
 });
 
